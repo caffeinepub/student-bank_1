@@ -2,10 +2,10 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-remove-any-admin-credentials-hint-helper-text-or-informational-note-about-the-admin-username-password-that-is-currently-displayed-at-the-bottom-of-the-login-page-the-login-form-should-show-only-the-input-fields-labels-and-the-submit-button-with-no-credential-hints-visible-to-users",
-      "featureTitle": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page. The login form should show only the input fields, labels, and the submit button with no credential hints visible to users.",
+      "featureId": "feature-fix-the-frontend-admin-login-flow-in-app-tsx-so-that-after-internet-identity-authentication-completes-the-adminlogin-call-is-made-correctly-errors-are-caught-and-displayed-to-the-user-and-on-success-the-user-is-routed-to-the-admin-dashboard",
+      "featureTitle": "Fix the frontend admin login flow in App.tsx so that after Internet Identity authentication completes, the adminLogin call is made correctly, errors are caught and displayed to the user, and on success the user is routed to the admin dashboard.",
       "files": [
-        "frontend/src/pages/Login.tsx"
+        "frontend/src/App.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -13,10 +13,11 @@
         "shadcn-ui@1.0.0",
         "build-template-react@1.0.0",
         "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
+        "github-export-icp-cli@1.0.0",
+        "blob-storage@4.0.0"
       ],
       "testIds": [
-        "REQ-16"
+        "REQ-2"
       ],
       "confidence": "high"
     }

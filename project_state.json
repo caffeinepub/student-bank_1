@@ -1,108 +1,18 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 7,
-  "summary": "Student Bank mobile app with admin/user login, folding dashboard, and pages for Home, Student, Account, Transaction, History, Passbook Print, and Bank Details. All data stored in browser localStorage with canister-based storage for cross-device sync. Login page does not display admin credentials hint.",
-  "architectural_notes": [
-    "Two roles: admin (admin/admin) and user (account number as both username and password)",
-    "Single-page app with folding/collapsible sidebar navigation",
-    "Canister-based (Motoko) backend storage for cross-device sync; localStorage used only as a cache"
+  "projectStateVersion": 3,
+  "summary": "New project",
+  "architectural_notes": [],
+  "known_issues": [
+    "Admin role assignment is failing with an error"
   ],
-  "known_issues": [],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-implement-authentication-system-with-two-roles-admin-username-admin-password-admin-and-user-username-account-number-password-account-number-store-session-in-localstorage-on-login-success-redirect-to-the-dashboard-provide-a-logout-button-that-clears-the-session-and-returns-to-the-login-page",
-      "title": "Implement authentication system with two roles: Admin (username: 'admin', password: 'admin') and User (username: account number, password: account number). Store session in localStorage. On login success, redirect to the dashboard. Provide a Logout button that clears the session and returns to the login page.",
-      "reqIds": [
-        "REQ-1"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-build-a-collapsible-folding-sidebar-navigation-dashboard-with-a-colorful-stylish-mobile-first-design-navigation-links-home-student-account-transaction-history-passbook-print-bank-details-apply-role-based-visibility-home-student-account-transaction-history-are-visible-to-admin-only-passbook-print-and-bank-details-are-visible-to-both-admin-and-user",
-      "title": "Build a collapsible/folding sidebar navigation dashboard with a colorful, stylish mobile-first design. Navigation links: Home, Student, Account, Transaction, History, Passbook Print, Bank Details. Apply role-based visibility: Home, Student, Account, Transaction, History are visible to admin only; Passbook Print and Bank Details are visible to both admin and user.",
+      "id": "feature-fix-the-frontend-admin-login-flow-in-app-tsx-so-that-after-internet-identity-authentication-completes-the-adminlogin-call-is-made-correctly-errors-are-caught-and-displayed-to-the-user-and-on-success-the-user-is-routed-to-the-admin-dashboard",
+      "title": "Fix the frontend admin login flow in App.tsx so that after Internet Identity authentication completes, the adminLogin call is made correctly, errors are caught and displayed to the user, and on success the user is routed to the admin dashboard.",
       "reqIds": [
         "REQ-2"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-create-the-home-page-admin-only-that-displays-five-colorful-summary-cards-total-students-total-accounts-total-deposit-amount-total-withdrawal-amount-and-current-balance-values-must-be-computed-live-from-localstorage-data",
-      "title": "Create the Home page (admin only) that displays five colorful summary cards: Total Students, Total Accounts, Total Deposit Amount, Total Withdrawal Amount, and Current Balance. Values must be computed live from localStorage data.",
-      "reqIds": [
-        "REQ-3"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-create-the-student-page-admin-only-with-a-new-student-button-that-opens-a-modal-form-with-fields-student-name-date-of-birth-class-attendance-number-school-name-taluka-district-on-submit-save-to-localstorage-and-display-in-a-data-table-each-table-row-must-have-edit-and-delete-icon-buttons",
-      "title": "Create the Student page (admin only) with a 'New Student' button that opens a modal/form with fields: Student Name, Date of Birth, Class, Attendance Number, School Name, Taluka, District. On submit, save to localStorage and display in a data table. Each table row must have Edit and Delete icon buttons.",
-      "reqIds": [
-        "REQ-4"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-create-the-account-page-admin-only-with-a-new-account-button-that-opens-a-form-with-fields-student-name-dropdown-populated-from-student-records-class-auto-filled-from-selected-student-bank-name-account-number-initial-amount-ifsc-code-on-submit-save-to-localstorage-and-display-in-a-data-table-with-edit-and-delete-buttons-note-google-sheet-integration-is-not-supported-all-data-is-persisted-in-localstorage",
-      "title": "Create the Account page (admin only) with a 'New Account' button that opens a form with fields: Student Name (dropdown populated from student records), Class (auto-filled from selected student), Bank Name, Account Number, Initial Amount, IFSC Code. On submit, save to localStorage and display in a data table with Edit and Delete buttons. Note: Google Sheet integration is not supported; all data is persisted in localStorage.",
-      "reqIds": [
-        "REQ-5"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-create-the-transaction-page-admin-only-with-a-form-account-number-dropdown-student-name-auto-filled-current-balance-initial-amount-auto-filled-date-transaction-type-deposit-withdrawal-amount-reason-total-amount-computed-on-submit-save-the-transaction-to-localstorage-and-display-all-transactions-for-the-selected-account-in-a-data-table-below-the-form",
-      "title": "Create the Transaction page (admin only) with a form: Account Number (dropdown), Student Name (auto-filled), Current Balance/Initial Amount (auto-filled), Date, Transaction Type (Deposit / Withdrawal), Amount, Reason, Total Amount (computed). On submit, save the transaction to localStorage and display all transactions for the selected account in a data table below the form.",
-      "reqIds": [
-        "REQ-6"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-create-the-history-page-admin-only-with-filters-account-number-text-input-from-date-to-date-and-a-search-button-on-search-display-the-student-s-full-details-bank-details-and-filtered-transaction-history-in-a-readable-layout-provide-a-print-button-browser-print-and-a-download-button-csv-or-printable-format-for-the-results",
-      "title": "Create the History page (admin only) with filters: Account Number (text input), From Date, To Date, and a Search button. On search, display the student's full details, bank details, and filtered transaction history in a readable layout. Provide a Print button (browser print) and a Download button (CSV or printable format) for the results.",
-      "reqIds": [
-        "REQ-7"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-create-the-passbook-print-page-accessible-to-both-admin-and-user-input-an-account-number-to-load-and-display-student-details-bank-details-and-full-transaction-history-in-a-passbook-style-layout-provide-a-print-button-for-browser-printing",
-      "title": "Create the Passbook Print page (accessible to both admin and user). Input an account number to load and display: student details, bank details, and full transaction history in a passbook-style layout. Provide a Print button for browser printing.",
-      "reqIds": [
-        "REQ-8"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-create-the-bank-details-page-accessible-to-both-admin-and-user-that-lists-bank-records-with-fields-bank-name-taluka-district-ifsc-code-admin-can-add-edit-and-delete-bank-records-users-can-only-view-the-list",
-      "title": "Create the Bank Details page (accessible to both admin and user) that lists bank records with fields: Bank Name, Taluka, District, IFSC Code. Admin can add, edit, and delete bank records. Users can only view the list.",
-      "reqIds": [
-        "REQ-9"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-persist-all-application-data-students-accounts-transactions-bank-details-exclusively-in-browser-localstorage-so-the-data-is-available-across-sessions-in-any-browser-on-the-same-device",
-      "title": "Persist all application data (students, accounts, transactions, bank details) exclusively in browser localStorage so the data is available across sessions in any browser on the same device.",
-      "reqIds": [
-        "REQ-10"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-apply-a-vibrant-colorful-mobile-first-visual-theme-across-the-entire-app-use-a-gradient-rich-color-palette-with-distinct-accent-colors-per-page-section-bold-typography-rounded-cards-and-smooth-transitions-the-login-page-sidebar-dashboard-cards-forms-and-tables-must-all-follow-this-cohesive-design-system",
-      "title": "Apply a vibrant, colorful mobile-first visual theme across the entire app. Use a gradient-rich color palette with distinct accent colors per page/section, bold typography, rounded cards, and smooth transitions. The login page, sidebar, dashboard cards, forms, and tables must all follow this cohesive design system.",
-      "reqIds": [
-        "REQ-12"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-remove-any-admin-credentials-hint-helper-text-or-informational-note-about-the-admin-username-password-that-is-currently-displayed-at-the-bottom-of-the-login-page-the-login-form-should-show-only-the-input-fields-labels-and-the-submit-button-with-no-credential-hints-visible-to-users",
-      "title": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page. The login form should show only the input fields, labels, and the submit button with no credential hints visible to users.",
-      "reqIds": [
-        "REQ-16"
       ],
       "version": 1
     }
@@ -110,105 +20,14 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Admin login (admin/admin) and User login (account number/account number) with logout, stylish colorful UI",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-2",
-      "summary": "Folding/collapsible colorful Dashboard with navigation to all pages",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-3",
-      "summary": "Home page with colorful summary cards: total students, total accounts, total deposit, total withdrawal, balance",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-4",
-      "summary": "Student page: add/edit/delete students with form (name, DOB, class, attendance no, school, taluka, district), data table",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-5",
-      "summary": "Account page: add/edit/delete accounts with form (student name dropdown, class auto, bank name, account number, initial amount, IFSC), save to Google Sheet, data table",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-6",
-      "summary": "Transaction page: account number dropdown, auto-fill student name & initial amount, date, transaction type (deposit/withdrawal), amount, reason, total amount, submit to data table",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-7",
-      "summary": "History page: search by account number and date range, show student/bank/transaction info, print and download options",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-8",
-      "summary": "Passbook Print page: print student info, bank info, transaction history by account number (admin + user access)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-9",
-      "summary": "Bank Details page: bank name, taluka, district, IFSC code (admin + user access)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-10",
-      "summary": "Role-based page access: Home/Student/Account/Transaction/History for admin only; Passbook Print and Bank Details for both admin and user",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-21",
-      "summary": "Implement a backend actor in Motoko that stores all Student, Account, Transaction, and Bank Detail records with full CRUD operations. The frontend should sync with the canister for persistent cross-device storage, using localStorage only as a cache.",
+      "summary": "Fix the backend admin role assignment logic so that calling `adminLogin(username, password)` correctly grants the admin role to the caller's principal without throwing an error.",
       "reqIds": [
-        "REQ-11"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-22",
-      "summary": "Remove admin credentials hint/info displayed at the bottom of the login page",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-23",
-      "summary": "Implement full CRUD operations in the Motoko backend actor for all four data entities: Students, Accounts, Transactions, and BankDetails. Each entity must support create, read (list all + get by ID), update, and delete operations. The backend must persist data in stable memory so it survives canister upgrades.",
-      "reqIds": [
-        "REQ-13"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-24",
-      "summary": "Replace all localStorage read/write operations in the frontend with calls to the Motoko backend canister for Students, Accounts, Transactions, and BankDetails. Use React Query to fetch, cache, and invalidate canister data. localStorage may remain as a short-lived UI cache but the canister is the source of truth. All pages (Home, Student, Account, Transaction, History, Passbook Print, Bank Details) must load data from the canister and write back to it on create/update/delete.",
-      "reqIds": [
-        "REQ-14"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-25",
-      "summary": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page. The login form should show only the input fields, labels, and the submit button with no credential hints visible to users.",
-      "reqIds": [
-        "REQ-15"
+        "REQ-1"
       ],
       "status": "pending"
     }
   ],
-  "gameProjectType": "none",
-  "projectName": "Student Bank",
+  "projectName": "Fix admin role assignment error",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

@@ -1,120 +1,93 @@
-import React, { useState, useEffect } from 'react';
-import {
-  getStudents, addStudent, updateStudent, deleteStudent,
-  type StudentRecord
-} from '../utils/localStorage';
-import { Plus, Pencil, Trash2, X, Search, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, X, Search, Users, RefreshCw } from 'lucide-react';
+import { useGetAllStudents, useCreateStudent, useUpdateStudent, useDeleteStudent } from '../hooks/useQueries';
+import type { Student } from '../backend';
 
-interface StudentForm {
-  name: string;
-  dob: string;
-  className: string;
-  attendanceNumber: string;
-  schoolName: string;
-  taluka: string;
-  district: string;
-}
-
-const emptyForm: StudentForm = {
-  name: '', dob: '', className: '', attendanceNumber: '',
+const emptyForm = {
+  name: '', dateOfBirth: '', studentClass: '', rollNumber: '',
   schoolName: '', taluka: '', district: '',
 };
 
-export default function Student() {
-  const [students, setStudents] = useState<StudentRecord[]>([]);
+export default function StudentPage() {
+  const { data: students = [], isLoading } = useGetAllStudents();
+  const createStudent = useCreateStudent();
+  const updateStudent = useUpdateStudent();
+  const deleteStudent = useDeleteStudent();
+
   const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<StudentForm>(emptyForm);
-  const [errors, setErrors] = useState<Partial<StudentForm>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-
-  const load = () => setStudents(getStudents());
-
-  useEffect(() => { load(); }, []);
-
-  const validate = (): boolean => {
-    const e: Partial<StudentForm> = {};
-    if (!form.name.trim()) e.name = 'नाव आवश्यक आहे';
-    if (!form.dob) e.dob = 'जन्म दिनांक आवश्यक आहे';
-    if (!form.className.trim()) e.className = 'इयत्ता आवश्यक आहे';
-    if (!form.attendanceNumber.trim()) e.attendanceNumber = 'हजेरी नंबर आवश्यक आहे';
-    if (!form.schoolName.trim()) e.schoolName = 'शाळेचे नाव आवश्यक आहे';
-    if (!form.taluka.trim()) e.taluka = 'तालुका आवश्यक आहे';
-    if (!form.district.trim()) e.district = 'जिल्हा आवश्यक आहे';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    if (editId) {
-      updateStudent(editId, form);
-    } else {
-      addStudent(form);
-    }
-    load();
-    setShowModal(false);
-    setEditId(null);
-    setForm(emptyForm);
-    setErrors({});
-  };
-
-  const handleEdit = (s: StudentRecord) => {
-    setForm({
-      name: s.name, dob: s.dob, className: s.className,
-      attendanceNumber: s.attendanceNumber, schoolName: s.schoolName,
-      taluka: s.taluka, district: s.district,
-    });
-    setEditId(s.id);
-    setShowModal(true);
-  };
-
-  const handleDelete = (id: string) => {
-    deleteStudent(id);
-    load();
-    setDeleteConfirm(null);
-  };
+  const [formError, setFormError] = useState('');
 
   const filtered = students.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.schoolName.toLowerCase().includes(search.toLowerCase()) ||
-    s.className.toLowerCase().includes(search.toLowerCase())
+    s.studentClass.toLowerCase().includes(search.toLowerCase()) ||
+    s.schoolName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const InputField = ({ label, field, type = 'text', placeholder = '' }: {
-    label: string; field: keyof StudentForm; type?: string; placeholder?: string;
-  }) => (
-    <div>
-      <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
-      <input
-        type={type}
-        value={form[field]}
-        onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
-        placeholder={placeholder}
-        className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none transition-colors ${
-          errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-purple-400 bg-gray-50'
-        }`}
-      />
-      {errors[field] && <p className="text-red-500 text-xs mt-1">{errors[field]}</p>}
-    </div>
-  );
+  const openAdd = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const openEdit = (s: Student) => {
+    setForm({
+      name: s.name, dateOfBirth: s.dateOfBirth, studentClass: s.studentClass,
+      rollNumber: s.rollNumber, schoolName: s.schoolName, taluka: s.taluka, district: s.district,
+    });
+    setEditingId(s.id);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name || !form.studentClass || !form.rollNumber || !form.schoolName) {
+      setFormError('कृपया सर्व आवश्यक फील्ड भरा');
+      return;
+    }
+    try {
+      if (editingId) {
+        await updateStudent.mutateAsync({ id: editingId, ...form });
+      } else {
+        await createStudent.mutateAsync(form);
+      }
+      setShowModal(false);
+      setForm(emptyForm);
+    } catch (err: any) {
+      setFormError(err.message || 'Error saving student');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteStudent.mutateAsync(id);
+      setDeleteConfirm(null);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting student');
+    }
+  };
+
+  const isSaving = createStudent.isPending || updateStudent.isPending;
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-800">विद्यार्थी यादी</h2>
-          <p className="text-xs text-gray-500">{students.length} विद्यार्थी नोंदणीकृत</p>
+          <h2 className="text-lg font-bold text-gray-800 font-poppins">👨‍🎓 Students</h2>
+          <p className="text-xs text-gray-500 font-poppins">{students.length} विद्यार्थी नोंदणीकृत</p>
         </div>
         <button
-          onClick={() => { setForm(emptyForm); setEditId(null); setErrors({}); setShowModal(true); }}
-          className="flex items-center gap-2 gradient-primary text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-glow hover:opacity-90 active:scale-95 transition-all"
+          onClick={openAdd}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold font-poppins shadow-md transition-all active:scale-95"
+          style={{ background: 'linear-gradient(135deg, #0f766e, #7c3aed)' }}
         >
-          <Plus size={16} />
-          नवीन विद्यार्थी
+          <Plus size={16} /> नवीन विद्यार्थी
         </button>
       </div>
 
@@ -126,56 +99,54 @@ export default function Student() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="विद्यार्थी शोधा..."
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-purple-400 focus:outline-none text-sm bg-white"
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-poppins focus:outline-none focus:border-teal-400"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <Users size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="font-medium">कोणतेही विद्यार्थी सापडले नाहीत</p>
-            <p className="text-xs mt-1">नवीन विद्यार्थी जोडण्यासाठी वरील बटण दाबा</p>
-          </div>
-        ) : (
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <RefreshCw size={32} className="animate-spin text-teal-500" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+          <Users size={48} className="mx-auto text-gray-300 mb-3" />
+          <p className="text-gray-500 font-poppins text-sm">कोणतेही विद्यार्थी सापडले नाहीत</p>
+          <button onClick={openAdd} className="mt-3 text-teal-600 text-sm font-poppins underline">
+            नवीन विद्यार्थी जोडा
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="gradient-primary text-white">
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">#</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">नाव</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">इयत्ता</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">हजेरी</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">शाळा</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">तालुका</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">जिल्हा</th>
-                  <th className="px-3 py-3 text-center text-xs font-semibold whitespace-nowrap">क्रिया</th>
+                <tr style={{ background: 'linear-gradient(135deg, #0f766e, #7c3aed)' }}>
+                  {['नाव', 'इयत्ता', 'हजेरी नं.', 'शाळा', 'तालुका', 'जिल्हा', 'क्रिया'].map(h => (
+                    <th key={h} className="px-3 py-3 text-left text-white text-xs font-bold font-poppins whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((s, idx) => (
-                  <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-purple-50/30'}>
-                    <td className="px-3 py-2.5 text-gray-500 text-xs">{idx + 1}</td>
-                    <td className="px-3 py-2.5 font-semibold text-gray-800 whitespace-nowrap">{s.name}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.className}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.attendanceNumber}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.schoolName}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.taluka}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{s.district}</td>
+                  <tr key={s.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-3 py-2.5 font-semibold text-gray-800 font-poppins whitespace-nowrap">{s.name}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins">{s.studentClass}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins">{s.rollNumber}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins whitespace-nowrap">{s.schoolName}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins">{s.taluka}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins">{s.district}</td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex gap-1">
                         <button
-                          onClick={() => handleEdit(s)}
-                          className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                          title="Edit"
+                          onClick={() => openEdit(s)}
+                          className="p-1.5 rounded-lg bg-violet-100 text-violet-600 hover:bg-violet-200 transition-colors"
                         >
-                          <Pencil size={13} />
+                          <Edit2 size={13} />
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(s.id)}
-                          className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                          title="Delete"
+                          className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -186,42 +157,62 @@ export default function Student() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-card-lg">
-            <div className="gradient-primary px-5 py-4 flex items-center justify-between rounded-t-3xl">
-              <h3 className="text-white font-bold text-base">
-                {editId ? 'विद्यार्थी संपादित करा' : 'नवीन विद्यार्थी'}
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b" style={{ background: 'linear-gradient(135deg, #0f766e, #7c3aed)' }}>
+              <h3 className="text-white font-bold font-poppins">
+                {editingId ? '✏️ विद्यार्थी संपादित करा' : '➕ नवीन विद्यार्थी'}
               </h3>
               <button onClick={() => setShowModal(false)} className="text-white/80 hover:text-white">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-3">
-              <InputField label="विद्यार्थी नाव *" field="name" placeholder="पूर्ण नाव टाका" />
-              <InputField label="जन्म दिनांक *" field="dob" type="date" />
-              <InputField label="इयत्ता *" field="className" placeholder="उदा: 5वी, 8वी" />
-              <InputField label="हजेरी नंबर *" field="attendanceNumber" placeholder="हजेरी क्रमांक" />
-              <InputField label="शाळेचे नाव *" field="schoolName" placeholder="शाळेचे नाव" />
-              <InputField label="तालुका *" field="taluka" placeholder="तालुका" />
-              <InputField label="जिल्हा *" field="district" placeholder="जिल्हा" />
-              <div className="flex gap-3 pt-2">
+            <form onSubmit={handleSubmit} className="p-4 space-y-3">
+              {[
+                { key: 'name', label: 'विद्यार्थी नाव *', type: 'text', placeholder: 'पूर्ण नाव' },
+                { key: 'dateOfBirth', label: 'जन्म दिनांक', type: 'date', placeholder: '' },
+                { key: 'studentClass', label: 'इयत्ता *', type: 'text', placeholder: 'उदा. 5वी' },
+                { key: 'rollNumber', label: 'हजेरी नंबर *', type: 'text', placeholder: 'हजेरी नंबर' },
+                { key: 'schoolName', label: 'शाळेचे नाव *', type: 'text', placeholder: 'शाळेचे नाव' },
+                { key: 'taluka', label: 'तालुका', type: 'text', placeholder: 'तालुका' },
+                { key: 'district', label: 'जिल्हा', type: 'text', placeholder: 'जिल्हा' },
+              ].map(field => (
+                <div key={field.key}>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">{field.label}</label>
+                  <input
+                    type={field.type}
+                    value={(form as any)[field.key]}
+                    onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={field.placeholder}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-teal-400 focus:outline-none text-sm font-poppins"
+                  />
+                </div>
+              ))}
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl px-3 py-2 font-poppins">
+                  ⚠️ {formError}
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50"
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold font-poppins hover:bg-gray-50"
                 >
                   रद्द करा
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-xl gradient-primary text-white font-semibold text-sm shadow-glow hover:opacity-90"
+                  disabled={isSaving}
+                  className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold font-poppins disabled:opacity-60 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #0f766e, #7c3aed)' }}
                 >
-                  {editId ? 'अपडेट करा' : 'जतन करा'}
+                  {isSaving ? <><RefreshCw size={14} className="animate-spin" /> सेव्ह होत आहे...</> : '💾 सेव्ह करा'}
                 </button>
               </div>
             </form>
@@ -232,21 +223,25 @@ export default function Student() {
       {/* Delete Confirm */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-card-lg">
-            <h3 className="font-bold text-gray-800 text-base mb-2">विद्यार्थी हटवायचा?</h3>
-            <p className="text-gray-500 text-sm mb-5">हे कायमचे हटवले जाईल. खात्री आहे का?</p>
-            <div className="flex gap-3">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 font-poppins mb-2">विद्यार्थी हटवायचा?</h3>
+            <p className="text-sm text-gray-500 font-poppins mb-4">हे कायमचे हटवले जाईल.</p>
+            <div className="flex gap-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm"
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold font-poppins"
               >
-                नाही
+                रद्द करा
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600"
+                disabled={deleteStudent.isPending}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold font-poppins disabled:opacity-60"
               >
-                हो, हटवा
+                {deleteStudent.isPending ? 'हटवत आहे...' : '🗑️ हटवा'}
               </button>
             </div>
           </div>

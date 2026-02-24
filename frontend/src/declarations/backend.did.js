@@ -8,53 +8,127 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const _CaffeineStorageCreateCertificateResult = IDL.Record({
+  'method' : IDL.Text,
+  'blob_hash' : IDL.Text,
+});
+export const _CaffeineStorageRefillInformation = IDL.Record({
+  'proposed_top_up_amount' : IDL.Opt(IDL.Nat),
+});
+export const _CaffeineStorageRefillResult = IDL.Record({
+  'success' : IDL.Opt(IDL.Bool),
+  'topped_up_amount' : IDL.Opt(IDL.Nat),
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
-export const Account = IDL.Record({
-  'id' : IDL.Text,
-  'studentId' : IDL.Text,
-  'balance' : IDL.Float64,
-  'accountNumber' : IDL.Text,
-});
-export const BankDetail = IDL.Record({
-  'id' : IDL.Text,
-  'branch' : IDL.Text,
-  'accountId' : IDL.Text,
-  'icon' : IDL.Text,
-  'bankName' : IDL.Text,
-});
-export const Student = IDL.Record({
-  'id' : IDL.Text,
-  'age' : IDL.Nat,
-  'gpa' : IDL.Float64,
-  'name' : IDL.Text,
+export const TransactionType = IDL.Variant({
+  'deposit' : IDL.Null,
+  'withdrawal' : IDL.Null,
 });
 export const Transaction = IDL.Record({
   'id' : IDL.Text,
-  'accountId' : IDL.Text,
+  'transactionType' : TransactionType,
+  'studentName' : IDL.Text,
   'date' : IDL.Text,
+  'totalAmount' : IDL.Float64,
+  'initialAmount' : IDL.Float64,
+  'accountNumber' : IDL.Text,
   'amount' : IDL.Float64,
+  'reason' : IDL.Text,
+});
+export const Account = IDL.Record({
+  'id' : IDL.Text,
+  'studentName' : IDL.Text,
+  'ifscCode' : IDL.Text,
+  'bankName' : IDL.Text,
+  'initialAmount' : IDL.Float64,
+  'accountNumber' : IDL.Text,
+  'transactions' : IDL.Vec(Transaction),
+  'studentClass' : IDL.Text,
+});
+export const BankDetail = IDL.Record({
+  'id' : IDL.Text,
+  'ifscCode' : IDL.Text,
+  'bankName' : IDL.Text,
+  'district' : IDL.Text,
+  'taluka' : IDL.Text,
+});
+export const Student = IDL.Record({
+  'id' : IDL.Text,
+  'dateOfBirth' : IDL.Text,
+  'name' : IDL.Text,
+  'district' : IDL.Text,
+  'taluka' : IDL.Text,
+  'accounts' : IDL.Vec(Account),
+  'rollNumber' : IDL.Text,
+  'transactions' : IDL.Vec(Transaction),
+  'studentClass' : IDL.Text,
+  'schoolName' : IDL.Text,
 });
 export const UserProfile = IDL.Record({
   'name' : IDL.Text,
-  'email' : IDL.Text,
+  'accountNumber' : IDL.Text,
 });
 
 export const idlService = IDL.Service({
+  '_caffeineStorageBlobIsLive' : IDL.Func(
+      [IDL.Vec(IDL.Nat8)],
+      [IDL.Bool],
+      ['query'],
+    ),
+  '_caffeineStorageBlobsToDelete' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Vec(IDL.Nat8))],
+      ['query'],
+    ),
+  '_caffeineStorageConfirmBlobDeletion' : IDL.Func(
+      [IDL.Vec(IDL.Vec(IDL.Nat8))],
+      [],
+      [],
+    ),
+  '_caffeineStorageCreateCertificate' : IDL.Func(
+      [IDL.Text],
+      [_CaffeineStorageCreateCertificateResult],
+      [],
+    ),
+  '_caffeineStorageRefillCashier' : IDL.Func(
+      [IDL.Opt(_CaffeineStorageRefillInformation)],
+      [_CaffeineStorageRefillResult],
+      [],
+    ),
+  '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'adminLogin' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-  'createAccount' : IDL.Func([IDL.Text, IDL.Float64, IDL.Text], [Account], []),
+  'createAccount' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Text],
+      [Account],
+      [],
+    ),
   'createBankDetail' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [BankDetail],
       [],
     ),
-  'createStudent' : IDL.Func([IDL.Text, IDL.Nat, IDL.Float64], [Student], []),
+  'createStudent' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [Student],
+      [],
+    ),
   'createTransaction' : IDL.Func(
-      [IDL.Float64, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Float64,
+        IDL.Text,
+        TransactionType,
+        IDL.Float64,
+        IDL.Text,
+        IDL.Float64,
+      ],
       [Transaction],
       [],
     ),
@@ -69,13 +143,23 @@ export const idlService = IDL.Service({
   'getAllStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
   'getAllTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
   'getBankDetail' : IDL.Func([IDL.Text], [BankDetail], ['query']),
-  'getBankDetailsByAccount' : IDL.Func(
+  'getBankDetailsByDistrict' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(BankDetail)],
+      ['query'],
+    ),
+  'getBankDetailsByTaluka' : IDL.Func(
       [IDL.Text],
       [IDL.Vec(BankDetail)],
       ['query'],
     ),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getPassbook' : IDL.Func(
+      [IDL.Text],
+      [Account, IDL.Vec(Transaction)],
+      ['query'],
+    ),
   'getStudent' : IDL.Func([IDL.Text], [Student], ['query']),
   'getTransaction' : IDL.Func([IDL.Text], [Transaction], ['query']),
   'getTransactionsByAccount' : IDL.Func(
@@ -90,8 +174,20 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'searchTransactions' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text],
+      [
+        IDL.Record({
+          'studentName' : IDL.Text,
+          'ifscCode' : IDL.Text,
+          'bankName' : IDL.Text,
+          'transactions' : IDL.Vec(Transaction),
+        }),
+      ],
+      ['query'],
+    ),
   'updateAccount' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Float64, IDL.Text],
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Text],
       [Account],
       [],
     ),
@@ -101,12 +197,31 @@ export const idlService = IDL.Service({
       [],
     ),
   'updateStudent' : IDL.Func(
-      [IDL.Text, IDL.Text, IDL.Nat, IDL.Float64],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+      ],
       [Student],
       [],
     ),
   'updateTransaction' : IDL.Func(
-      [IDL.Text, IDL.Float64, IDL.Text, IDL.Text],
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Float64,
+        IDL.Text,
+        TransactionType,
+        IDL.Float64,
+        IDL.Text,
+        IDL.Float64,
+      ],
       [Transaction],
       [],
     ),
@@ -115,43 +230,103 @@ export const idlService = IDL.Service({
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const _CaffeineStorageCreateCertificateResult = IDL.Record({
+    'method' : IDL.Text,
+    'blob_hash' : IDL.Text,
+  });
+  const _CaffeineStorageRefillInformation = IDL.Record({
+    'proposed_top_up_amount' : IDL.Opt(IDL.Nat),
+  });
+  const _CaffeineStorageRefillResult = IDL.Record({
+    'success' : IDL.Opt(IDL.Bool),
+    'topped_up_amount' : IDL.Opt(IDL.Nat),
+  });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
   });
-  const Account = IDL.Record({
-    'id' : IDL.Text,
-    'studentId' : IDL.Text,
-    'balance' : IDL.Float64,
-    'accountNumber' : IDL.Text,
-  });
-  const BankDetail = IDL.Record({
-    'id' : IDL.Text,
-    'branch' : IDL.Text,
-    'accountId' : IDL.Text,
-    'icon' : IDL.Text,
-    'bankName' : IDL.Text,
-  });
-  const Student = IDL.Record({
-    'id' : IDL.Text,
-    'age' : IDL.Nat,
-    'gpa' : IDL.Float64,
-    'name' : IDL.Text,
+  const TransactionType = IDL.Variant({
+    'deposit' : IDL.Null,
+    'withdrawal' : IDL.Null,
   });
   const Transaction = IDL.Record({
     'id' : IDL.Text,
-    'accountId' : IDL.Text,
+    'transactionType' : TransactionType,
+    'studentName' : IDL.Text,
     'date' : IDL.Text,
+    'totalAmount' : IDL.Float64,
+    'initialAmount' : IDL.Float64,
+    'accountNumber' : IDL.Text,
     'amount' : IDL.Float64,
+    'reason' : IDL.Text,
   });
-  const UserProfile = IDL.Record({ 'name' : IDL.Text, 'email' : IDL.Text });
+  const Account = IDL.Record({
+    'id' : IDL.Text,
+    'studentName' : IDL.Text,
+    'ifscCode' : IDL.Text,
+    'bankName' : IDL.Text,
+    'initialAmount' : IDL.Float64,
+    'accountNumber' : IDL.Text,
+    'transactions' : IDL.Vec(Transaction),
+    'studentClass' : IDL.Text,
+  });
+  const BankDetail = IDL.Record({
+    'id' : IDL.Text,
+    'ifscCode' : IDL.Text,
+    'bankName' : IDL.Text,
+    'district' : IDL.Text,
+    'taluka' : IDL.Text,
+  });
+  const Student = IDL.Record({
+    'id' : IDL.Text,
+    'dateOfBirth' : IDL.Text,
+    'name' : IDL.Text,
+    'district' : IDL.Text,
+    'taluka' : IDL.Text,
+    'accounts' : IDL.Vec(Account),
+    'rollNumber' : IDL.Text,
+    'transactions' : IDL.Vec(Transaction),
+    'studentClass' : IDL.Text,
+    'schoolName' : IDL.Text,
+  });
+  const UserProfile = IDL.Record({
+    'name' : IDL.Text,
+    'accountNumber' : IDL.Text,
+  });
   
   return IDL.Service({
+    '_caffeineStorageBlobIsLive' : IDL.Func(
+        [IDL.Vec(IDL.Nat8)],
+        [IDL.Bool],
+        ['query'],
+      ),
+    '_caffeineStorageBlobsToDelete' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Vec(IDL.Nat8))],
+        ['query'],
+      ),
+    '_caffeineStorageConfirmBlobDeletion' : IDL.Func(
+        [IDL.Vec(IDL.Vec(IDL.Nat8))],
+        [],
+        [],
+      ),
+    '_caffeineStorageCreateCertificate' : IDL.Func(
+        [IDL.Text],
+        [_CaffeineStorageCreateCertificateResult],
+        [],
+      ),
+    '_caffeineStorageRefillCashier' : IDL.Func(
+        [IDL.Opt(_CaffeineStorageRefillInformation)],
+        [_CaffeineStorageRefillResult],
+        [],
+      ),
+    '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'adminLogin' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'createAccount' : IDL.Func(
-        [IDL.Text, IDL.Float64, IDL.Text],
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Text],
         [Account],
         [],
       ),
@@ -160,9 +335,22 @@ export const idlFactory = ({ IDL }) => {
         [BankDetail],
         [],
       ),
-    'createStudent' : IDL.Func([IDL.Text, IDL.Nat, IDL.Float64], [Student], []),
+    'createStudent' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [Student],
+        [],
+      ),
     'createTransaction' : IDL.Func(
-        [IDL.Float64, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Float64,
+          IDL.Text,
+          TransactionType,
+          IDL.Float64,
+          IDL.Text,
+          IDL.Float64,
+        ],
         [Transaction],
         [],
       ),
@@ -181,13 +369,23 @@ export const idlFactory = ({ IDL }) => {
     'getAllStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
     'getAllTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
     'getBankDetail' : IDL.Func([IDL.Text], [BankDetail], ['query']),
-    'getBankDetailsByAccount' : IDL.Func(
+    'getBankDetailsByDistrict' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(BankDetail)],
+        ['query'],
+      ),
+    'getBankDetailsByTaluka' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(BankDetail)],
         ['query'],
       ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getPassbook' : IDL.Func(
+        [IDL.Text],
+        [Account, IDL.Vec(Transaction)],
+        ['query'],
+      ),
     'getStudent' : IDL.Func([IDL.Text], [Student], ['query']),
     'getTransaction' : IDL.Func([IDL.Text], [Transaction], ['query']),
     'getTransactionsByAccount' : IDL.Func(
@@ -202,8 +400,28 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'searchTransactions' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [
+          IDL.Record({
+            'studentName' : IDL.Text,
+            'ifscCode' : IDL.Text,
+            'bankName' : IDL.Text,
+            'transactions' : IDL.Vec(Transaction),
+          }),
+        ],
+        ['query'],
+      ),
     'updateAccount' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Float64, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Float64,
+          IDL.Text,
+        ],
         [Account],
         [],
       ),
@@ -213,12 +431,31 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'updateStudent' : IDL.Func(
-        [IDL.Text, IDL.Text, IDL.Nat, IDL.Float64],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+        ],
         [Student],
         [],
       ),
     'updateTransaction' : IDL.Func(
-        [IDL.Text, IDL.Float64, IDL.Text, IDL.Text],
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Float64,
+          IDL.Text,
+          TransactionType,
+          IDL.Float64,
+          IDL.Text,
+          IDL.Float64,
+        ],
         [Transaction],
         [],
       ),

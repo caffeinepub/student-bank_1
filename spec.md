@@ -1,9 +1,10 @@
 # Specification
 
 ## Summary
-**Goal:** Remove the admin credentials hint/demo info displayed at the bottom of the Login page.
+**Goal:** Fix the admin login flow so that calling `adminLogin` correctly assigns the admin role without errors, and the frontend properly handles the result.
 
 **Planned changes:**
-- Remove any text, note, card, or section on the Login page that displays admin username/password or demo credentials hint.
+- Fix backend `adminLogin` logic in `main.mo` so it correctly assigns the admin role to the caller's principal without throwing an error
+- Fix the frontend admin login flow in `App.tsx` so that after Internet Identity authentication, `adminLogin` is called correctly, errors are caught and displayed to the user, and on success the user is redirected to the admin dashboard
 
-**User-visible outcome:** The Login page shows only the username input, password input, and submit button — with no credential hints or demo admin info visible.
+**User-visible outcome:** Admins can log in via Internet Identity and are successfully granted the admin role and redirected to the admin dashboard; any login errors are clearly shown on the login page instead of silently failing.

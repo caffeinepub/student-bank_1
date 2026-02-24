@@ -1,124 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, X, Search, CreditCard, RefreshCw } from 'lucide-react';
 import {
-  getAccounts, addAccount, updateAccount, deleteAccount,
-  getStudents, type AccountRecord, type StudentRecord
-} from '../utils/localStorage';
-import { Plus, Pencil, Trash2, X, Search, CreditCard } from 'lucide-react';
+  useGetAllAccounts, useCreateAccount, useUpdateAccount, useDeleteAccount,
+  useGetAllStudents
+} from '../hooks/useQueries';
+import type { Account } from '../backend';
 
-interface AccountForm {
-  studentId: string;
-  studentName: string;
-  className: string;
-  bankName: string;
-  accountNumber: string;
-  initialAmount: string;
-  ifscCode: string;
-}
-
-const emptyForm: AccountForm = {
-  studentId: '', studentName: '', className: '',
-  bankName: '', accountNumber: '', initialAmount: '', ifscCode: '',
+const emptyForm = {
+  studentName: '', studentClass: '', bankName: '',
+  accountNumber: '', initialAmount: '', ifscCode: '',
 };
 
-export default function Account() {
-  const [accounts, setAccounts] = useState<AccountRecord[]>([]);
-  const [students, setStudents] = useState<StudentRecord[]>([]);
+export default function AccountPage() {
+  const { data: accounts = [], isLoading } = useGetAllAccounts();
+  const { data: students = [] } = useGetAllStudents();
+  const createAccount = useCreateAccount();
+  const updateAccount = useUpdateAccount();
+  const deleteAccount = useDeleteAccount();
+
   const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<AccountForm>(emptyForm);
-  const [errors, setErrors] = useState<Partial<AccountForm>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-
-  const load = () => {
-    setAccounts(getAccounts());
-    setStudents(getStudents());
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const handleStudentChange = (studentId: string) => {
-    const student = students.find(s => s.id === studentId);
-    setForm(prev => ({
-      ...prev,
-      studentId,
-      studentName: student?.name || '',
-      className: student?.className || '',
-    }));
-  };
-
-  const validate = (): boolean => {
-    const e: Partial<AccountForm> = {};
-    if (!form.studentId) e.studentId = 'विद्यार्थी निवडा';
-    if (!form.bankName.trim()) e.bankName = 'बँकेचे नाव आवश्यक आहे';
-    if (!form.accountNumber.trim()) e.accountNumber = 'खाते क्रमांक आवश्यक आहे';
-    if (!form.initialAmount || isNaN(Number(form.initialAmount)) || Number(form.initialAmount) < 0)
-      e.initialAmount = 'वैध रक्कम टाका';
-    if (!form.ifscCode.trim()) e.ifscCode = 'IFSC कोड आवश्यक आहे';
-
-    // Check unique account number
-    if (!e.accountNumber && !editId) {
-      const existing = getAccounts().find(a => a.accountNumber === form.accountNumber);
-      if (existing) e.accountNumber = 'हा खाते क्रमांक आधीच अस्तित्वात आहे';
-    }
-
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    const amount = Number(form.initialAmount);
-    if (editId) {
-      updateAccount(editId, {
-        studentId: form.studentId,
-        studentName: form.studentName,
-        className: form.className,
-        bankName: form.bankName,
-        accountNumber: form.accountNumber,
-        initialAmount: amount,
-        ifscCode: form.ifscCode,
-        currentBalance: amount,
-      });
-    } else {
-      addAccount({
-        studentId: form.studentId,
-        studentName: form.studentName,
-        className: form.className,
-        bankName: form.bankName,
-        accountNumber: form.accountNumber,
-        initialAmount: amount,
-        ifscCode: form.ifscCode,
-        currentBalance: amount,
-      });
-    }
-    load();
-    setShowModal(false);
-    setEditId(null);
-    setForm(emptyForm);
-    setErrors({});
-  };
-
-  const handleEdit = (a: AccountRecord) => {
-    setForm({
-      studentId: a.studentId,
-      studentName: a.studentName,
-      className: a.className,
-      bankName: a.bankName,
-      accountNumber: a.accountNumber,
-      initialAmount: a.initialAmount.toString(),
-      ifscCode: a.ifscCode,
-    });
-    setEditId(a.id);
-    setShowModal(true);
-  };
-
-  const handleDelete = (id: string) => {
-    deleteAccount(id);
-    load();
-    setDeleteConfirm(null);
-  };
+  const [formError, setFormError] = useState('');
 
   const filtered = accounts.filter(a =>
     a.studentName.toLowerCase().includes(search.toLowerCase()) ||
@@ -126,22 +31,83 @@ export default function Account() {
     a.bankName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const formatAmount = (n: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  const openAdd = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const openEdit = (a: Account) => {
+    setForm({
+      studentName: a.studentName, studentClass: a.studentClass, bankName: a.bankName,
+      accountNumber: a.accountNumber, initialAmount: String(a.initialAmount), ifscCode: a.ifscCode,
+    });
+    setEditingId(a.id);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const handleStudentSelect = (name: string) => {
+    const student = students.find(s => s.name === name);
+    setForm(prev => ({
+      ...prev,
+      studentName: name,
+      studentClass: student?.studentClass || '',
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.studentName || !form.bankName || !form.accountNumber || !form.ifscCode) {
+      setFormError('कृपया सर्व आवश्यक फील्ड भरा');
+      return;
+    }
+    try {
+      const data = {
+        studentName: form.studentName,
+        studentClass: form.studentClass,
+        bankName: form.bankName,
+        accountNumber: form.accountNumber,
+        initialAmount: parseFloat(form.initialAmount) || 0,
+        ifscCode: form.ifscCode,
+      };
+      if (editingId) {
+        await updateAccount.mutateAsync({ id: editingId, ...data });
+      } else {
+        await createAccount.mutateAsync(data);
+      }
+      setShowModal(false);
+      setForm(emptyForm);
+    } catch (err: any) {
+      setFormError(err.message || 'Error saving account');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAccount.mutateAsync(id);
+      setDeleteConfirm(null);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting account');
+    }
+  };
+
+  const isSaving = createAccount.isPending || updateAccount.isPending;
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-800">खाते यादी</h2>
-          <p className="text-xs text-gray-500">{accounts.length} खाते नोंदणीकृत</p>
+          <h2 className="text-lg font-bold text-gray-800 font-poppins">💳 Accounts</h2>
+          <p className="text-xs text-gray-500 font-poppins">{accounts.length} खाती नोंदणीकृत</p>
         </div>
         <button
-          onClick={() => { setForm(emptyForm); setEditId(null); setErrors({}); setShowModal(true); }}
-          className="flex items-center gap-2 gradient-green text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-card hover:opacity-90 active:scale-95 transition-all"
+          onClick={openAdd}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold font-poppins shadow-md"
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #ea580c)' }}
         >
-          <Plus size={16} />
-          नवीन खाते
+          <Plus size={16} /> नवीन Account
         </button>
       </div>
 
@@ -151,55 +117,46 @@ export default function Account() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="खाते शोधा..."
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none text-sm bg-white"
+          placeholder="Account शोधा..."
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-poppins focus:outline-none focus:border-violet-400"
         />
       </div>
 
-      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <CreditCard size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="font-medium">कोणतेही खाते सापडले नाही</p>
-            <p className="text-xs mt-1">नवीन खाते जोडण्यासाठी वरील बटण दाबा</p>
-          </div>
-        ) : (
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <RefreshCw size={32} className="animate-spin text-violet-500" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+          <CreditCard size={48} className="mx-auto text-gray-300 mb-3" />
+          <p className="text-gray-500 font-poppins text-sm">कोणतेही account सापडले नाही</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="gradient-green text-white">
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">#</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">विद्यार्थी</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">इयत्ता</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">बँक</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">खाते क्र.</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">प्रारंभिक</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">IFSC</th>
-                  <th className="px-3 py-3 text-center text-xs font-semibold whitespace-nowrap">क्रिया</th>
+                <tr style={{ background: 'linear-gradient(135deg, #7c3aed, #ea580c)' }}>
+                  {['विद्यार्थी', 'इयत्ता', 'बँक', 'Account नं.', 'प्रारंभिक रक्कम', 'IFSC', 'क्रिया'].map(h => (
+                    <th key={h} className="px-3 py-3 text-left text-white text-xs font-bold font-poppins whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((a, idx) => (
-                  <tr key={a.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-green-50/30'}>
-                    <td className="px-3 py-2.5 text-gray-500 text-xs">{idx + 1}</td>
-                    <td className="px-3 py-2.5 font-semibold text-gray-800 whitespace-nowrap">{a.studentName}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{a.className}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{a.bankName}</td>
-                    <td className="px-3 py-2.5 text-gray-600 font-mono whitespace-nowrap">{a.accountNumber}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{formatAmount(a.initialAmount)}</td>
-                    <td className="px-3 py-2.5 text-gray-600 font-mono whitespace-nowrap">{a.ifscCode}</td>
+                  <tr key={a.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-3 py-2.5 font-semibold text-gray-800 font-poppins whitespace-nowrap">{a.studentName}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins">{a.studentClass}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins whitespace-nowrap">{a.bankName}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins font-mono">{a.accountNumber}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins">₹{a.initialAmount.toLocaleString('en-IN')}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins font-mono text-xs">{a.ifscCode}</td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleEdit(a)}
-                          className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                        >
-                          <Pencil size={13} />
+                      <div className="flex gap-1">
+                        <button onClick={() => openEdit(a)} className="p-1.5 rounded-lg bg-violet-100 text-violet-600 hover:bg-violet-200">
+                          <Edit2 size={13} />
                         </button>
-                        <button
-                          onClick={() => setDeleteConfirm(a.id)}
-                          className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                        >
+                        <button onClick={() => setDeleteConfirm(a.id)} className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200">
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -209,84 +166,78 @@ export default function Account() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-card-lg">
-            <div className="gradient-green px-5 py-4 flex items-center justify-between rounded-t-3xl">
-              <h3 className="text-white font-bold text-base">
-                {editId ? 'खाते संपादित करा' : 'नवीन खाते'}
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b" style={{ background: 'linear-gradient(135deg, #7c3aed, #ea580c)' }}>
+              <h3 className="text-white font-bold font-poppins">
+                {editingId ? '✏️ Account संपादित करा' : '➕ नवीन Account'}
               </h3>
               <button onClick={() => setShowModal(false)} className="text-white/80 hover:text-white">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-3">
+            <form onSubmit={handleSubmit} className="p-4 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">विद्यार्थी नाव *</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">विद्यार्थी नाव *</label>
                 <select
-                  value={form.studentId}
-                  onChange={e => handleStudentChange(e.target.value)}
-                  className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none transition-colors ${
-                    errors.studentId ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-green-400 bg-gray-50'
-                  }`}
+                  value={form.studentName}
+                  onChange={e => handleStudentSelect(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-violet-400 focus:outline-none text-sm font-poppins bg-white"
                 >
-                  <option value="">-- विद्यार्थी निवडा --</option>
+                  <option value="">विद्यार्थी निवडा</option>
                   {students.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.className})</option>
+                    <option key={s.id} value={s.name}>{s.name}</option>
                   ))}
                 </select>
-                {errors.studentId && <p className="text-red-500 text-xs mt-1">{errors.studentId}</p>}
               </div>
-
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">इयत्ता (स्वयंचलित)</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">इयत्ता (Automatic)</label>
                 <input
                   type="text"
-                  value={form.className}
+                  value={form.studentClass}
                   readOnly
-                  className="w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-100 text-sm text-gray-500"
-                  placeholder="विद्यार्थी निवडल्यावर भरेल"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-poppins text-gray-500"
+                  placeholder="विद्यार्थी निवडल्यावर automatic"
                 />
               </div>
-
               {[
-                { label: 'बँकेचे नाव *', field: 'bankName' as keyof AccountForm, placeholder: 'बँकेचे नाव' },
-                { label: 'खाते क्रमांक *', field: 'accountNumber' as keyof AccountForm, placeholder: 'खाते क्रमांक' },
-                { label: 'प्रारंभिक रक्कम *', field: 'initialAmount' as keyof AccountForm, placeholder: '0', type: 'number' },
-                { label: 'IFSC कोड *', field: 'ifscCode' as keyof AccountForm, placeholder: 'IFSC कोड' },
-              ].map(({ label, field, placeholder, type }) => (
-                <div key={field}>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                { key: 'bankName', label: 'Bank नाव *', type: 'text', placeholder: 'बँकेचे नाव' },
+                { key: 'accountNumber', label: 'Account Number *', type: 'text', placeholder: 'Account Number' },
+                { key: 'initialAmount', label: 'Initial Amount', type: 'number', placeholder: '0.00' },
+                { key: 'ifscCode', label: 'IFSC Code *', type: 'text', placeholder: 'IFSC Code' },
+              ].map(field => (
+                <div key={field.key}>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">{field.label}</label>
                   <input
-                    type={type || 'text'}
-                    value={form[field]}
-                    onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
-                    placeholder={placeholder}
-                    className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none transition-colors ${
-                      errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-green-400 bg-gray-50'
-                    }`}
+                    type={field.type}
+                    value={(form as any)[field.key]}
+                    onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={field.placeholder}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-violet-400 focus:outline-none text-sm font-poppins"
                   />
-                  {errors[field] && <p className="text-red-500 text-xs mt-1">{errors[field]}</p>}
                 </div>
               ))}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm"
-                >
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl px-3 py-2 font-poppins">
+                  ⚠️ {formError}
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold font-poppins">
                   रद्द करा
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-xl gradient-green text-white font-semibold text-sm shadow-card hover:opacity-90"
+                  disabled={isSaving}
+                  className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold font-poppins disabled:opacity-60 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #ea580c)' }}
                 >
-                  {editId ? 'अपडेट करा' : 'जतन करा'}
+                  {isSaving ? <><RefreshCw size={14} className="animate-spin" /> सेव्ह होत आहे...</> : '💾 सेव्ह करा'}
                 </button>
               </div>
             </form>
@@ -296,12 +247,21 @@ export default function Account() {
 
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-card-lg">
-            <h3 className="font-bold text-gray-800 text-base mb-2">खाते हटवायचे?</h3>
-            <p className="text-gray-500 text-sm mb-5">हे कायमचे हटवले जाईल. खात्री आहे का?</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm">नाही</button>
-              <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm">हो, हटवा</button>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 font-poppins mb-2">Account हटवायचे?</h3>
+            <p className="text-sm text-gray-500 font-poppins mb-4">हे कायमचे हटवले जाईल.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold font-poppins">रद्द करा</button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                disabled={deleteAccount.isPending}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold font-poppins disabled:opacity-60"
+              >
+                {deleteAccount.isPending ? 'हटवत आहे...' : '🗑️ हटवा'}
+              </button>
             </div>
           </div>
         </div>

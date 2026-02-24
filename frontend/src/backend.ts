@@ -89,34 +89,64 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface _CaffeineStorageRefillResult {
+    success?: boolean;
+    topped_up_amount?: bigint;
+}
 export interface Student {
     id: string;
-    age: bigint;
-    gpa: number;
+    dateOfBirth: string;
     name: string;
+    district: string;
+    taluka: string;
+    accounts: Array<Account>;
+    rollNumber: string;
+    transactions: Array<Transaction>;
+    studentClass: string;
+    schoolName: string;
 }
 export interface BankDetail {
     id: string;
-    branch: string;
-    accountId: string;
-    icon: string;
+    ifscCode: string;
     bankName: string;
+    district: string;
+    taluka: string;
 }
 export interface Account {
     id: string;
-    studentId: string;
-    balance: number;
+    studentName: string;
+    ifscCode: string;
+    bankName: string;
+    initialAmount: number;
     accountNumber: string;
+    transactions: Array<Transaction>;
+    studentClass: string;
+}
+export interface _CaffeineStorageRefillInformation {
+    proposed_top_up_amount?: bigint;
+}
+export interface _CaffeineStorageCreateCertificateResult {
+    method: string;
+    blob_hash: string;
 }
 export interface UserProfile {
     name: string;
-    email: string;
+    accountNumber: string;
 }
 export interface Transaction {
     id: string;
-    accountId: string;
+    transactionType: TransactionType;
+    studentName: string;
     date: string;
+    totalAmount: number;
+    initialAmount: number;
+    accountNumber: string;
     amount: number;
+    reason: string;
+}
+export enum TransactionType {
+    deposit = "deposit",
+    withdrawal = "withdrawal"
 }
 export enum UserRole {
     admin = "admin",
@@ -124,40 +154,139 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
+    _caffeineStorageBlobIsLive(hash: Uint8Array): Promise<boolean>;
+    _caffeineStorageBlobsToDelete(): Promise<Array<Uint8Array>>;
+    _caffeineStorageConfirmBlobDeletion(blobs: Array<Uint8Array>): Promise<void>;
+    _caffeineStorageCreateCertificate(blobHash: string): Promise<_CaffeineStorageCreateCertificateResult>;
+    _caffeineStorageRefillCashier(refillInformation: _CaffeineStorageRefillInformation | null): Promise<_CaffeineStorageRefillResult>;
+    _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    adminLogin(username: string, password: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createAccount(accountNumber: string, balance: number, studentId: string): Promise<Account>;
-    createBankDetail(bankName: string, branch: string, icon: string, accountId: string): Promise<BankDetail>;
-    createStudent(name: string, age: bigint, gpa: number): Promise<Student>;
-    createTransaction(amount: number, date: string, accountId: string): Promise<Transaction>;
+    createAccount(studentName: string, studentClass: string, bankName: string, accountNumber: string, initialAmount: number, ifscCode: string): Promise<Account>;
+    createBankDetail(bankName: string, taluka: string, district: string, ifscCode: string): Promise<BankDetail>;
+    createStudent(name: string, dateOfBirth: string, studentClass: string, rollNumber: string, schoolName: string, taluka: string, district: string): Promise<Student>;
+    createTransaction(accountNumber: string, studentName: string, initialAmount: number, date: string, transactionType: TransactionType, amount: number, reason: string, totalAmount: number): Promise<Transaction>;
     deleteAccount(id: string): Promise<void>;
     deleteBankDetail(id: string): Promise<void>;
     deleteStudent(id: string): Promise<void>;
     deleteTransaction(id: string): Promise<void>;
     getAccount(id: string): Promise<Account>;
-    getAccountsByStudent(studentId: string): Promise<Array<Account>>;
+    getAccountsByStudent(studentName: string): Promise<Array<Account>>;
     getAllAccounts(): Promise<Array<Account>>;
     getAllBankDetails(): Promise<Array<BankDetail>>;
     getAllStudents(): Promise<Array<Student>>;
     getAllTransactions(): Promise<Array<Transaction>>;
     getBankDetail(id: string): Promise<BankDetail>;
-    getBankDetailsByAccount(accountId: string): Promise<Array<BankDetail>>;
+    getBankDetailsByDistrict(district: string): Promise<Array<BankDetail>>;
+    getBankDetailsByTaluka(taluka: string): Promise<Array<BankDetail>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getPassbook(accountNumber: string): Promise<[Account, Array<Transaction>]>;
     getStudent(id: string): Promise<Student>;
     getTransaction(id: string): Promise<Transaction>;
-    getTransactionsByAccount(accountId: string): Promise<Array<Transaction>>;
+    getTransactionsByAccount(accountNumber: string): Promise<Array<Transaction>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    updateAccount(id: string, accountNumber: string, balance: number, studentId: string): Promise<Account>;
-    updateBankDetail(id: string, bankName: string, branch: string, icon: string, accountId: string): Promise<BankDetail>;
-    updateStudent(id: string, name: string, age: bigint, gpa: number): Promise<Student>;
-    updateTransaction(id: string, amount: number, date: string, accountId: string): Promise<Transaction>;
+    searchTransactions(accountNumber: string, dateFrom: string, dateTo: string): Promise<{
+        studentName: string;
+        ifscCode: string;
+        bankName: string;
+        transactions: Array<Transaction>;
+    }>;
+    updateAccount(id: string, studentName: string, studentClass: string, bankName: string, accountNumber: string, initialAmount: number, ifscCode: string): Promise<Account>;
+    updateBankDetail(id: string, bankName: string, taluka: string, district: string, ifscCode: string): Promise<BankDetail>;
+    updateStudent(id: string, name: string, dateOfBirth: string, studentClass: string, rollNumber: string, schoolName: string, taluka: string, district: string): Promise<Student>;
+    updateTransaction(id: string, accountNumber: string, studentName: string, initialAmount: number, date: string, transactionType: TransactionType, amount: number, reason: string, totalAmount: number): Promise<Transaction>;
 }
-import type { UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
+import type { Account as _Account, Student as _Student, Transaction as _Transaction, TransactionType as _TransactionType, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async _caffeineStorageBlobIsLive(arg0: Uint8Array): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor._caffeineStorageBlobIsLive(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor._caffeineStorageBlobIsLive(arg0);
+            return result;
+        }
+    }
+    async _caffeineStorageBlobsToDelete(): Promise<Array<Uint8Array>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor._caffeineStorageBlobsToDelete();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor._caffeineStorageBlobsToDelete();
+            return result;
+        }
+    }
+    async _caffeineStorageConfirmBlobDeletion(arg0: Array<Uint8Array>): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor._caffeineStorageConfirmBlobDeletion(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor._caffeineStorageConfirmBlobDeletion(arg0);
+            return result;
+        }
+    }
+    async _caffeineStorageCreateCertificate(arg0: string): Promise<_CaffeineStorageCreateCertificateResult> {
+        if (this.processError) {
+            try {
+                const result = await this.actor._caffeineStorageCreateCertificate(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor._caffeineStorageCreateCertificate(arg0);
+            return result;
+        }
+    }
+    async _caffeineStorageRefillCashier(arg0: _CaffeineStorageRefillInformation | null): Promise<_CaffeineStorageRefillResult> {
+        if (this.processError) {
+            try {
+                const result = await this.actor._caffeineStorageRefillCashier(to_candid_opt_n1(this._uploadFile, this._downloadFile, arg0));
+                return from_candid__CaffeineStorageRefillResult_n4(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor._caffeineStorageRefillCashier(to_candid_opt_n1(this._uploadFile, this._downloadFile, arg0));
+            return from_candid__CaffeineStorageRefillResult_n4(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async _caffeineStorageUpdateGatewayPrincipals(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor._caffeineStorageUpdateGatewayPrincipals();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor._caffeineStorageUpdateGatewayPrincipals();
+            return result;
+        }
+    }
     async _initializeAccessControlWithSecret(arg0: string): Promise<void> {
         if (this.processError) {
             try {
@@ -172,32 +301,46 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
+    async adminLogin(arg0: string, arg1: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+                const result = await this.actor.adminLogin(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+            const result = await this.actor.adminLogin(arg0, arg1);
             return result;
         }
     }
-    async createAccount(arg0: string, arg1: number, arg2: string): Promise<Account> {
+    async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.createAccount(arg0, arg1, arg2);
+                const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n8(this._uploadFile, this._downloadFile, arg1));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createAccount(arg0, arg1, arg2);
+            const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n8(this._uploadFile, this._downloadFile, arg1));
             return result;
+        }
+    }
+    async createAccount(arg0: string, arg1: string, arg2: string, arg3: string, arg4: number, arg5: string): Promise<Account> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createAccount(arg0, arg1, arg2, arg3, arg4, arg5);
+                return from_candid_Account_n10(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createAccount(arg0, arg1, arg2, arg3, arg4, arg5);
+            return from_candid_Account_n10(this._uploadFile, this._downloadFile, result);
         }
     }
     async createBankDetail(arg0: string, arg1: string, arg2: string, arg3: string): Promise<BankDetail> {
@@ -214,32 +357,32 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async createStudent(arg0: string, arg1: bigint, arg2: number): Promise<Student> {
+    async createStudent(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string): Promise<Student> {
         if (this.processError) {
             try {
-                const result = await this.actor.createStudent(arg0, arg1, arg2);
-                return result;
+                const result = await this.actor.createStudent(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return from_candid_Student_n17(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createStudent(arg0, arg1, arg2);
-            return result;
+            const result = await this.actor.createStudent(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return from_candid_Student_n17(this._uploadFile, this._downloadFile, result);
         }
     }
-    async createTransaction(arg0: number, arg1: string, arg2: string): Promise<Transaction> {
+    async createTransaction(arg0: string, arg1: string, arg2: number, arg3: string, arg4: TransactionType, arg5: number, arg6: string, arg7: number): Promise<Transaction> {
         if (this.processError) {
             try {
-                const result = await this.actor.createTransaction(arg0, arg1, arg2);
-                return result;
+                const result = await this.actor.createTransaction(arg0, arg1, arg2, arg3, to_candid_TransactionType_n20(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7);
+                return from_candid_Transaction_n13(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createTransaction(arg0, arg1, arg2);
-            return result;
+            const result = await this.actor.createTransaction(arg0, arg1, arg2, arg3, to_candid_TransactionType_n20(this._uploadFile, this._downloadFile, arg4), arg5, arg6, arg7);
+            return from_candid_Transaction_n13(this._uploadFile, this._downloadFile, result);
         }
     }
     async deleteAccount(arg0: string): Promise<void> {
@@ -302,42 +445,42 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAccount(arg0);
-                return result;
+                return from_candid_Account_n10(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAccount(arg0);
-            return result;
+            return from_candid_Account_n10(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAccountsByStudent(arg0: string): Promise<Array<Account>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getAccountsByStudent(arg0);
-                return result;
+                return from_candid_vec_n19(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAccountsByStudent(arg0);
-            return result;
+            return from_candid_vec_n19(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllAccounts(): Promise<Array<Account>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllAccounts();
-                return result;
+                return from_candid_vec_n19(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllAccounts();
-            return result;
+            return from_candid_vec_n19(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllBankDetails(): Promise<Array<BankDetail>> {
@@ -358,28 +501,28 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllStudents();
-                return result;
+                return from_candid_vec_n22(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllStudents();
-            return result;
+            return from_candid_vec_n22(this._uploadFile, this._downloadFile, result);
         }
     }
     async getAllTransactions(): Promise<Array<Transaction>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getAllTransactions();
-                return result;
+                return from_candid_vec_n12(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getAllTransactions();
-            return result;
+            return from_candid_vec_n12(this._uploadFile, this._downloadFile, result);
         }
     }
     async getBankDetail(arg0: string): Promise<BankDetail> {
@@ -396,17 +539,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getBankDetailsByAccount(arg0: string): Promise<Array<BankDetail>> {
+    async getBankDetailsByDistrict(arg0: string): Promise<Array<BankDetail>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getBankDetailsByAccount(arg0);
+                const result = await this.actor.getBankDetailsByDistrict(arg0);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getBankDetailsByAccount(arg0);
+            const result = await this.actor.getBankDetailsByDistrict(arg0);
+            return result;
+        }
+    }
+    async getBankDetailsByTaluka(arg0: string): Promise<Array<BankDetail>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getBankDetailsByTaluka(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getBankDetailsByTaluka(arg0);
             return result;
         }
     }
@@ -414,84 +571,104 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getCallerUserProfile();
-                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n23(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getCallerUserProfile();
-            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n23(this._uploadFile, this._downloadFile, result);
         }
     }
     async getCallerUserRole(): Promise<UserRole> {
         if (this.processError) {
             try {
                 const result = await this.actor.getCallerUserRole();
-                return from_candid_UserRole_n4(this._uploadFile, this._downloadFile, result);
+                return from_candid_UserRole_n24(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getCallerUserRole();
-            return from_candid_UserRole_n4(this._uploadFile, this._downloadFile, result);
+            return from_candid_UserRole_n24(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getPassbook(arg0: string): Promise<[Account, Array<Transaction>]> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getPassbook(arg0);
+                return [
+                    from_candid_Account_n10(this._uploadFile, this._downloadFile, result[0]),
+                    from_candid_vec_n12(this._uploadFile, this._downloadFile, result[1])
+                ];
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getPassbook(arg0);
+            return [
+                from_candid_Account_n10(this._uploadFile, this._downloadFile, result[0]),
+                from_candid_vec_n12(this._uploadFile, this._downloadFile, result[1])
+            ];
         }
     }
     async getStudent(arg0: string): Promise<Student> {
         if (this.processError) {
             try {
                 const result = await this.actor.getStudent(arg0);
-                return result;
+                return from_candid_Student_n17(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getStudent(arg0);
-            return result;
+            return from_candid_Student_n17(this._uploadFile, this._downloadFile, result);
         }
     }
     async getTransaction(arg0: string): Promise<Transaction> {
         if (this.processError) {
             try {
                 const result = await this.actor.getTransaction(arg0);
-                return result;
+                return from_candid_Transaction_n13(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getTransaction(arg0);
-            return result;
+            return from_candid_Transaction_n13(this._uploadFile, this._downloadFile, result);
         }
     }
     async getTransactionsByAccount(arg0: string): Promise<Array<Transaction>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getTransactionsByAccount(arg0);
-                return result;
+                return from_candid_vec_n12(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getTransactionsByAccount(arg0);
-            return result;
+            return from_candid_vec_n12(this._uploadFile, this._downloadFile, result);
         }
     }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getUserProfile(arg0);
-                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n23(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getUserProfile(arg0);
-            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n23(this._uploadFile, this._downloadFile, result);
         }
     }
     async isCallerAdmin(): Promise<boolean> {
@@ -522,18 +699,37 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async updateAccount(arg0: string, arg1: string, arg2: number, arg3: string): Promise<Account> {
+    async searchTransactions(arg0: string, arg1: string, arg2: string): Promise<{
+        studentName: string;
+        ifscCode: string;
+        bankName: string;
+        transactions: Array<Transaction>;
+    }> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateAccount(arg0, arg1, arg2, arg3);
-                return result;
+                const result = await this.actor.searchTransactions(arg0, arg1, arg2);
+                return from_candid_record_n26(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateAccount(arg0, arg1, arg2, arg3);
-            return result;
+            const result = await this.actor.searchTransactions(arg0, arg1, arg2);
+            return from_candid_record_n26(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async updateAccount(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: number, arg6: string): Promise<Account> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateAccount(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+                return from_candid_Account_n10(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateAccount(arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+            return from_candid_Account_n10(this._uploadFile, this._downloadFile, result);
         }
     }
     async updateBankDetail(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<BankDetail> {
@@ -550,42 +746,199 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async updateStudent(arg0: string, arg1: string, arg2: bigint, arg3: number): Promise<Student> {
+    async updateStudent(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string, arg5: string, arg6: string, arg7: string): Promise<Student> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateStudent(arg0, arg1, arg2, arg3);
-                return result;
+                const result = await this.actor.updateStudent(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+                return from_candid_Student_n17(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateStudent(arg0, arg1, arg2, arg3);
-            return result;
+            const result = await this.actor.updateStudent(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+            return from_candid_Student_n17(this._uploadFile, this._downloadFile, result);
         }
     }
-    async updateTransaction(arg0: string, arg1: number, arg2: string, arg3: string): Promise<Transaction> {
+    async updateTransaction(arg0: string, arg1: string, arg2: string, arg3: number, arg4: string, arg5: TransactionType, arg6: number, arg7: string, arg8: number): Promise<Transaction> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateTransaction(arg0, arg1, arg2, arg3);
-                return result;
+                const result = await this.actor.updateTransaction(arg0, arg1, arg2, arg3, arg4, to_candid_TransactionType_n20(this._uploadFile, this._downloadFile, arg5), arg6, arg7, arg8);
+                return from_candid_Transaction_n13(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateTransaction(arg0, arg1, arg2, arg3);
-            return result;
+            const result = await this.actor.updateTransaction(arg0, arg1, arg2, arg3, arg4, to_candid_TransactionType_n20(this._uploadFile, this._downloadFile, arg5), arg6, arg7, arg8);
+            return from_candid_Transaction_n13(this._uploadFile, this._downloadFile, result);
         }
     }
 }
-function from_candid_UserRole_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
-    return from_candid_variant_n5(_uploadFile, _downloadFile, value);
+function from_candid_Account_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Account): Account {
+    return from_candid_record_n11(_uploadFile, _downloadFile, value);
 }
-function from_candid_opt_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
+function from_candid_Student_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Student): Student {
+    return from_candid_record_n18(_uploadFile, _downloadFile, value);
+}
+function from_candid_TransactionType_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _TransactionType): TransactionType {
+    return from_candid_variant_n16(_uploadFile, _downloadFile, value);
+}
+function from_candid_Transaction_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _Transaction): Transaction {
+    return from_candid_record_n14(_uploadFile, _downloadFile, value);
+}
+function from_candid_UserRole_n24(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
+    return from_candid_variant_n25(_uploadFile, _downloadFile, value);
+}
+function from_candid__CaffeineStorageRefillResult_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: __CaffeineStorageRefillResult): _CaffeineStorageRefillResult {
+    return from_candid_record_n5(_uploadFile, _downloadFile, value);
+}
+function from_candid_opt_n23(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_variant_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_opt_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [boolean]): boolean | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_record_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: string;
+    studentName: string;
+    ifscCode: string;
+    bankName: string;
+    initialAmount: number;
+    accountNumber: string;
+    transactions: Array<_Transaction>;
+    studentClass: string;
+}): {
+    id: string;
+    studentName: string;
+    ifscCode: string;
+    bankName: string;
+    initialAmount: number;
+    accountNumber: string;
+    transactions: Array<Transaction>;
+    studentClass: string;
+} {
+    return {
+        id: value.id,
+        studentName: value.studentName,
+        ifscCode: value.ifscCode,
+        bankName: value.bankName,
+        initialAmount: value.initialAmount,
+        accountNumber: value.accountNumber,
+        transactions: from_candid_vec_n12(_uploadFile, _downloadFile, value.transactions),
+        studentClass: value.studentClass
+    };
+}
+function from_candid_record_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: string;
+    transactionType: _TransactionType;
+    studentName: string;
+    date: string;
+    totalAmount: number;
+    initialAmount: number;
+    accountNumber: string;
+    amount: number;
+    reason: string;
+}): {
+    id: string;
+    transactionType: TransactionType;
+    studentName: string;
+    date: string;
+    totalAmount: number;
+    initialAmount: number;
+    accountNumber: string;
+    amount: number;
+    reason: string;
+} {
+    return {
+        id: value.id,
+        transactionType: from_candid_TransactionType_n15(_uploadFile, _downloadFile, value.transactionType),
+        studentName: value.studentName,
+        date: value.date,
+        totalAmount: value.totalAmount,
+        initialAmount: value.initialAmount,
+        accountNumber: value.accountNumber,
+        amount: value.amount,
+        reason: value.reason
+    };
+}
+function from_candid_record_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    id: string;
+    dateOfBirth: string;
+    name: string;
+    district: string;
+    taluka: string;
+    accounts: Array<_Account>;
+    rollNumber: string;
+    transactions: Array<_Transaction>;
+    studentClass: string;
+    schoolName: string;
+}): {
+    id: string;
+    dateOfBirth: string;
+    name: string;
+    district: string;
+    taluka: string;
+    accounts: Array<Account>;
+    rollNumber: string;
+    transactions: Array<Transaction>;
+    studentClass: string;
+    schoolName: string;
+} {
+    return {
+        id: value.id,
+        dateOfBirth: value.dateOfBirth,
+        name: value.name,
+        district: value.district,
+        taluka: value.taluka,
+        accounts: from_candid_vec_n19(_uploadFile, _downloadFile, value.accounts),
+        rollNumber: value.rollNumber,
+        transactions: from_candid_vec_n12(_uploadFile, _downloadFile, value.transactions),
+        studentClass: value.studentClass,
+        schoolName: value.schoolName
+    };
+}
+function from_candid_record_n26(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    studentName: string;
+    ifscCode: string;
+    bankName: string;
+    transactions: Array<_Transaction>;
+}): {
+    studentName: string;
+    ifscCode: string;
+    bankName: string;
+    transactions: Array<Transaction>;
+} {
+    return {
+        studentName: value.studentName,
+        ifscCode: value.ifscCode,
+        bankName: value.bankName,
+        transactions: from_candid_vec_n12(_uploadFile, _downloadFile, value.transactions)
+    };
+}
+function from_candid_record_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    success: [] | [boolean];
+    topped_up_amount: [] | [bigint];
+}): {
+    success?: boolean;
+    topped_up_amount?: bigint;
+} {
+    return {
+        success: record_opt_to_undefined(from_candid_opt_n6(_uploadFile, _downloadFile, value.success)),
+        topped_up_amount: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.topped_up_amount))
+    };
+}
+function from_candid_variant_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    deposit: null;
+} | {
+    withdrawal: null;
+}): TransactionType {
+    return "deposit" in value ? TransactionType.deposit : "withdrawal" in value ? TransactionType.withdrawal : value;
+}
+function from_candid_variant_n25(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     admin: null;
 } | {
     user: null;
@@ -594,10 +947,48 @@ function from_candid_variant_n5(_uploadFile: (file: ExternalBlob) => Promise<Uin
 }): UserRole {
     return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
 }
-function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
-    return to_candid_variant_n2(_uploadFile, _downloadFile, value);
+function from_candid_vec_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Transaction>): Array<Transaction> {
+    return value.map((x)=>from_candid_Transaction_n13(_uploadFile, _downloadFile, x));
 }
-function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
+function from_candid_vec_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Account>): Array<Account> {
+    return value.map((x)=>from_candid_Account_n10(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n22(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Student>): Array<Student> {
+    return value.map((x)=>from_candid_Student_n17(_uploadFile, _downloadFile, x));
+}
+function to_candid_TransactionType_n20(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: TransactionType): _TransactionType {
+    return to_candid_variant_n21(_uploadFile, _downloadFile, value);
+}
+function to_candid_UserRole_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
+    return to_candid_variant_n9(_uploadFile, _downloadFile, value);
+}
+function to_candid__CaffeineStorageRefillInformation_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _CaffeineStorageRefillInformation): __CaffeineStorageRefillInformation {
+    return to_candid_record_n3(_uploadFile, _downloadFile, value);
+}
+function to_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _CaffeineStorageRefillInformation | null): [] | [__CaffeineStorageRefillInformation] {
+    return value === null ? candid_none() : candid_some(to_candid__CaffeineStorageRefillInformation_n2(_uploadFile, _downloadFile, value));
+}
+function to_candid_record_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    proposed_top_up_amount?: bigint;
+}): {
+    proposed_top_up_amount: [] | [bigint];
+} {
+    return {
+        proposed_top_up_amount: value.proposed_top_up_amount ? candid_some(value.proposed_top_up_amount) : candid_none()
+    };
+}
+function to_candid_variant_n21(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: TransactionType): {
+    deposit: null;
+} | {
+    withdrawal: null;
+} {
+    return value == TransactionType.deposit ? {
+        deposit: null
+    } : value == TransactionType.withdrawal ? {
+        withdrawal: null
+    } : value;
+}
+function to_candid_variant_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
     admin: null;
 } | {
     user: null;

@@ -1,99 +1,103 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, X, Building2, RefreshCw, Search } from 'lucide-react';
 import {
-  getBankDetails, addBankDetail, updateBankDetail, deleteBankDetail,
-  getAuthSession, type BankDetailRecord
-} from '../utils/localStorage';
-import { Plus, Pencil, Trash2, X, Building2, Search } from 'lucide-react';
+  useGetAllBankDetails,
+  useCreateBankDetail,
+  useUpdateBankDetail,
+  useDeleteBankDetail,
+} from '../hooks/useQueries';
+import type { BankDetail } from '../backend';
 
-interface BankForm {
-  bankName: string;
-  taluka: string;
-  district: string;
-  ifscCode: string;
+interface BankDetailsProps {
+  isAdmin: boolean;
 }
 
-const emptyForm: BankForm = { bankName: '', taluka: '', district: '', ifscCode: '' };
+const emptyForm = { bankName: '', taluka: '', district: '', ifscCode: '' };
 
-export default function BankDetails() {
-  const session = getAuthSession();
-  const isAdmin = session?.role === 'admin';
+export default function BankDetails({ isAdmin }: BankDetailsProps) {
+  const { data: bankDetails = [], isLoading } = useGetAllBankDetails();
+  const createBankDetail = useCreateBankDetail();
+  const updateBankDetail = useUpdateBankDetail();
+  const deleteBankDetail = useDeleteBankDetail();
 
-  const [details, setDetails] = useState<BankDetailRecord[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<BankForm>(emptyForm);
-  const [errors, setErrors] = useState<Partial<BankForm>>({});
   const [search, setSearch] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [formError, setFormError] = useState('');
 
-  const load = () => setDetails(getBankDetails());
+  const filtered = bankDetails.filter(b =>
+    b.bankName.toLowerCase().includes(search.toLowerCase()) ||
+    b.taluka.toLowerCase().includes(search.toLowerCase()) ||
+    b.district.toLowerCase().includes(search.toLowerCase()) ||
+    b.ifscCode.toLowerCase().includes(search.toLowerCase())
+  );
 
-  useEffect(() => { load(); }, []);
-
-  const validate = (): boolean => {
-    const e: Partial<BankForm> = {};
-    if (!form.bankName.trim()) e.bankName = 'बँकेचे नाव आवश्यक आहे';
-    if (!form.taluka.trim()) e.taluka = 'तालुका आवश्यक आहे';
-    if (!form.district.trim()) e.district = 'जिल्हा आवश्यक आहे';
-    if (!form.ifscCode.trim()) e.ifscCode = 'IFSC कोड आवश्यक आहे';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-    if (editId) {
-      updateBankDetail(editId, form);
-    } else {
-      addBankDetail(form);
-    }
-    load();
-    setShowModal(false);
-    setEditId(null);
+  const openAdd = () => {
     setForm(emptyForm);
-    setErrors({});
-  };
-
-  const handleEdit = (d: BankDetailRecord) => {
-    setForm({
-      bankName: d.bankName,
-      taluka: d.taluka,
-      district: d.district,
-      ifscCode: d.ifscCode,
-    });
-    setEditId(d.id);
+    setEditingId(null);
+    setFormError('');
     setShowModal(true);
   };
 
-  const handleDelete = (id: string) => {
-    deleteBankDetail(id);
-    load();
-    setDeleteConfirm(null);
+  const openEdit = (b: BankDetail) => {
+    setForm({
+      bankName: b.bankName,
+      taluka: b.taluka,
+      district: b.district,
+      ifscCode: b.ifscCode,
+    });
+    setEditingId(b.id);
+    setFormError('');
+    setShowModal(true);
   };
 
-  const filtered = details.filter(d =>
-    d.bankName.toLowerCase().includes(search.toLowerCase()) ||
-    d.taluka.toLowerCase().includes(search.toLowerCase()) ||
-    d.district.toLowerCase().includes(search.toLowerCase()) ||
-    d.ifscCode.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.bankName || !form.ifscCode) {
+      setFormError('कृपया बँक नाव आणि IFSC Code भरा');
+      return;
+    }
+    try {
+      if (editingId) {
+        await updateBankDetail.mutateAsync({ id: editingId, ...form });
+      } else {
+        await createBankDetail.mutateAsync(form);
+      }
+      setShowModal(false);
+      setForm(emptyForm);
+    } catch (err: any) {
+      setFormError(err.message || 'Error saving bank detail');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteBankDetail.mutateAsync(id);
+      setDeleteConfirm(null);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting bank detail');
+    }
+  };
+
+  const isSaving = createBankDetail.isPending || updateBankDetail.isPending;
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-800">बँक माहिती</h2>
-          <p className="text-xs text-gray-500">{details.length} बँक नोंदणीकृत</p>
+          <h2 className="text-lg font-bold text-gray-800 font-poppins">🏦 Bank Details</h2>
+          <p className="text-xs text-gray-500 font-poppins">{bankDetails.length} बँका नोंदणीकृत</p>
         </div>
         {isAdmin && (
           <button
-            onClick={() => { setForm(emptyForm); setEditId(null); setErrors({}); setShowModal(true); }}
-            className="flex items-center gap-2 gradient-teal text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-card hover:opacity-90 active:scale-95 transition-all"
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold font-poppins shadow-md"
+            style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
           >
-            <Plus size={16} />
-            बँक जोडा
+            <Plus size={16} /> नवीन बँक
           </button>
         )}
       </div>
@@ -106,57 +110,62 @@ export default function BankDetails() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="बँक शोधा..."
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-teal-400 focus:outline-none text-sm bg-white"
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-poppins focus:outline-none focus:border-yellow-400"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <Building2 size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="font-medium">कोणतीही बँक माहिती सापडली नाही</p>
-            {isAdmin && (
-              <p className="text-xs mt-1">नवीन बँक जोडण्यासाठी वरील बटण दाबा</p>
-            )}
-          </div>
-        ) : (
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <RefreshCw size={32} className="animate-spin text-yellow-500" />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+          <Building2 size={48} className="mx-auto text-gray-300 mb-3" />
+          <p className="text-gray-500 font-poppins text-sm">कोणतीही बँक माहिती सापडली नाही</p>
+          {isAdmin && (
+            <button onClick={openAdd} className="mt-3 text-yellow-600 text-sm font-poppins underline">
+              नवीन बँक जोडा
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="gradient-teal text-white">
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">#</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">बँकेचे नाव</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">तालुका</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">जिल्हा</th>
-                  <th className="px-3 py-3 text-left text-xs font-semibold whitespace-nowrap">IFSC कोड</th>
-                  {isAdmin && (
-                    <th className="px-3 py-3 text-center text-xs font-semibold whitespace-nowrap">क्रिया</th>
-                  )}
+                <tr style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}>
+                  {['बँक नाव', 'तालुका', 'जिल्हा', 'IFSC Code', ...(isAdmin ? ['क्रिया'] : [])].map(h => (
+                    <th key={h} className="px-3 py-3 text-left text-white text-xs font-bold font-poppins whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((d, idx) => (
-                  <tr key={d.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-teal-50/30'}>
-                    <td className="px-3 py-2.5 text-gray-500 text-xs">{idx + 1}</td>
-                    <td className="px-3 py-2.5 font-semibold text-gray-800 whitespace-nowrap">{d.bankName}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{d.taluka}</td>
-                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{d.district}</td>
-                    <td className="px-3 py-2.5 text-gray-600 font-mono whitespace-nowrap">{d.ifscCode}</td>
+                {filtered.map((b, idx) => (
+                  <tr key={b.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <td className="px-3 py-2.5 font-semibold text-gray-800 font-poppins whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="w-7 h-7 rounded-lg bg-yellow-100 flex items-center justify-center text-yellow-600 flex-shrink-0">
+                          <Building2 size={14} />
+                        </span>
+                        {b.bankName}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins">{b.taluka || '-'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins">{b.district || '-'}</td>
+                    <td className="px-3 py-2.5 text-gray-600 font-poppins font-mono text-xs">{b.ifscCode}</td>
                     {isAdmin && (
                       <td className="px-3 py-2.5">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <div className="flex gap-1">
                           <button
-                            onClick={() => handleEdit(d)}
-                            className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                            title="Edit"
+                            onClick={() => openEdit(b)}
+                            className="p-1.5 rounded-lg bg-violet-100 text-violet-600 hover:bg-violet-200 transition-colors"
                           >
-                            <Pencil size={13} />
+                            <Edit2 size={13} />
                           </button>
                           <button
-                            onClick={() => setDeleteConfirm(d.id)}
-                            className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                            title="Delete"
+                            onClick={() => setDeleteConfirm(b.id)}
+                            className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -168,73 +177,68 @@ export default function BankDetails() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Footer */}
-      <div className="text-center py-4 text-xs text-gray-400">
-        <p>
-          Built with{' '}
-          <span className="text-red-400">♥</span>
-          {' '}using{' '}
-          <a
-            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname || 'student-bank')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-purple-500 font-semibold hover:underline"
-          >
-            caffeine.ai
-          </a>
-          {' '}· © {new Date().getFullYear()} Student Bank
-        </p>
-      </div>
-
-      {/* Modal */}
-      {isAdmin && showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-card-lg">
-            <div className="gradient-teal px-5 py-4 flex items-center justify-between rounded-t-3xl">
-              <h3 className="text-white font-bold text-base">
-                {editId ? 'बँक माहिती संपादित करा' : 'नवीन बँक जोडा'}
+      {/* Add/Edit Modal */}
+      {showModal && isAdmin && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div
+              className="flex items-center justify-between p-4 border-b"
+              style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
+            >
+              <h3 className="text-white font-bold font-poppins">
+                {editingId ? '✏️ बँक माहिती संपादित करा' : '➕ नवीन बँक माहिती'}
               </h3>
               <button onClick={() => setShowModal(false)} className="text-white/80 hover:text-white">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-3">
+            <form onSubmit={handleSubmit} className="p-4 space-y-3">
               {[
-                { label: 'बँकेचे नाव *', field: 'bankName' as keyof BankForm, placeholder: 'बँकेचे पूर्ण नाव' },
-                { label: 'तालुका *', field: 'taluka' as keyof BankForm, placeholder: 'तालुका' },
-                { label: 'जिल्हा *', field: 'district' as keyof BankForm, placeholder: 'जिल्हा' },
-                { label: 'IFSC कोड *', field: 'ifscCode' as keyof BankForm, placeholder: 'IFSC कोड' },
-              ].map(({ label, field, placeholder }) => (
-                <div key={field}>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                { key: 'bankName', label: 'बँक नाव *', placeholder: 'बँकेचे नाव' },
+                { key: 'taluka', label: 'तालुका', placeholder: 'तालुका' },
+                { key: 'district', label: 'जिल्हा', placeholder: 'जिल्हा' },
+                { key: 'ifscCode', label: 'IFSC Code *', placeholder: 'IFSC Code' },
+              ].map(field => (
+                <div key={field.key}>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">
+                    {field.label}
+                  </label>
                   <input
                     type="text"
-                    value={form[field]}
-                    onChange={e => setForm(prev => ({ ...prev, [field]: e.target.value }))}
-                    placeholder={placeholder}
-                    className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none transition-colors ${
-                      errors[field] ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-teal-400 bg-gray-50'
-                    }`}
+                    value={(form as any)[field.key]}
+                    onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={field.placeholder}
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-yellow-400 focus:outline-none text-sm font-poppins"
                   />
-                  {errors[field] && <p className="text-red-500 text-xs mt-1">{errors[field]}</p>}
                 </div>
               ))}
-              <div className="flex gap-3 pt-2">
+
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl px-3 py-2 font-poppins">
+                  ⚠️ {formError}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50"
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold font-poppins hover:bg-gray-50"
                 >
                   रद्द करा
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 rounded-xl gradient-teal text-white font-semibold text-sm shadow-card hover:opacity-90"
+                  disabled={isSaving}
+                  className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold font-poppins disabled:opacity-60 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #f59e0b, #ea580c)' }}
                 >
-                  {editId ? 'अपडेट करा' : 'जतन करा'}
+                  {isSaving ? (
+                    <><RefreshCw size={14} className="animate-spin" /> सेव्ह होत आहे...</>
+                  ) : '💾 सेव्ह करा'}
                 </button>
               </div>
             </form>
@@ -243,23 +247,27 @@ export default function BankDetails() {
       )}
 
       {/* Delete Confirm */}
-      {deleteConfirm && (
+      {deleteConfirm && isAdmin && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-card-lg">
-            <h3 className="font-bold text-gray-800 text-base mb-2">बँक माहिती हटवायची?</h3>
-            <p className="text-gray-500 text-sm mb-5">हे कायमचे हटवले जाईल. खात्री आहे का?</p>
-            <div className="flex gap-3">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 font-poppins mb-2">बँक माहिती हटवायची?</h3>
+            <p className="text-sm text-gray-500 font-poppins mb-4">हे कायमचे हटवले जाईल.</p>
+            <div className="flex gap-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold text-sm"
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold font-poppins"
               >
-                नाही
+                रद्द करा
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-sm hover:bg-red-600"
+                disabled={deleteBankDetail.isPending}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold font-poppins disabled:opacity-60"
               >
-                हो, हटवा
+                {deleteBankDetail.isPending ? 'हटवत आहे...' : '🗑️ हटवा'}
               </button>
             </div>
           </div>

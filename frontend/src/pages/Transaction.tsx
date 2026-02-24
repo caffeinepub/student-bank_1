@@ -1,309 +1,345 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Plus, Edit2, Trash2, X, ArrowLeftRight, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
 import {
-  getAccounts, getStudents, addTransaction, getTransactionsByAccount,
-  computeCurrentBalance, type AccountRecord, type TransactionRecord
-} from '../utils/localStorage';
-import { ArrowLeftRight, TrendingUp, TrendingDown } from 'lucide-react';
+  useGetAllTransactions, useCreateTransaction, useUpdateTransaction, useDeleteTransaction,
+  useGetAllAccounts
+} from '../hooks/useQueries';
+import { TransactionType } from '../backend';
+import type { Transaction } from '../backend';
 
-export default function Transaction() {
-  const [accounts, setAccounts] = useState<AccountRecord[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState('');
-  const [selectedAccount, setSelectedAccount] = useState<AccountRecord | null>(null);
-  const [currentBalance, setCurrentBalance] = useState(0);
-  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+const today = new Date().toISOString().split('T')[0];
 
-  const [form, setForm] = useState({
-    date: new Date().toISOString().split('T')[0],
-    type: 'deposit' as 'deposit' | 'withdrawal',
-    amount: '',
-    reason: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+const emptyForm = {
+  accountNumber: '', studentName: '', initialAmount: 0,
+  date: today, transactionType: TransactionType.deposit,
+  amount: '', reason: '', totalAmount: 0,
+};
 
-  useEffect(() => {
-    setAccounts(getAccounts());
-  }, []);
+export default function TransactionPage() {
+  const { data: transactions = [], isLoading } = useGetAllTransactions();
+  const { data: accounts = [] } = useGetAllAccounts();
+  const createTransaction = useCreateTransaction();
+  const updateTransaction = useUpdateTransaction();
+  const deleteTransaction = useDeleteTransaction();
 
-  useEffect(() => {
-    if (selectedAccountId) {
-      const acc = accounts.find(a => a.id === selectedAccountId) || null;
-      setSelectedAccount(acc);
-      if (acc) {
-        const bal = computeCurrentBalance(acc.id, acc.initialAmount);
-        setCurrentBalance(bal);
-        setTransactions(getTransactionsByAccount(acc.id));
-      }
-    } else {
-      setSelectedAccount(null);
-      setCurrentBalance(0);
-      setTransactions([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [formError, setFormError] = useState('');
+
+  const isDeposit = (t: any) => JSON.stringify(t.transactionType).includes('deposit');
+
+  const handleAccountSelect = (accountNumber: string) => {
+    const account = accounts.find(a => a.accountNumber === accountNumber);
+    if (account) {
+      const accountTxs = transactions.filter(t => t.accountNumber === accountNumber);
+      const currentBalance = accountTxs.reduce((bal, t) => {
+        return isDeposit(t) ? bal + t.amount : bal - t.amount;
+      }, account.initialAmount);
+      setForm(prev => ({
+        ...prev,
+        accountNumber,
+        studentName: account.studentName,
+        initialAmount: account.initialAmount,
+        totalAmount: currentBalance,
+      }));
     }
-  }, [selectedAccountId, accounts]);
-
-  useEffect(() => {
-    const amt = Number(form.amount) || 0;
-    if (form.type === 'deposit') {
-      setTotalAmount(currentBalance + amt);
-    } else {
-      setTotalAmount(currentBalance - amt);
-    }
-  }, [form.amount, form.type, currentBalance]);
-
-  const validate = () => {
-    const e: Record<string, string> = {};
-    if (!selectedAccountId) e.account = 'खाते निवडा';
-    if (!form.date) e.date = 'दिनांक आवश्यक आहे';
-    if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0)
-      e.amount = 'वैध रक्कम टाका';
-    if (form.type === 'withdrawal' && Number(form.amount) > currentBalance)
-      e.amount = `शिल्लक रक्कम (₹${currentBalance.toFixed(0)}) पेक्षा जास्त काढता येणार नाही`;
-    if (!form.reason.trim()) e.reason = 'कारण आवश्यक आहे';
-    setErrors(e);
-    return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate() || !selectedAccount) return;
+  const handleAmountChange = (amount: string) => {
+    const amt = parseFloat(amount) || 0;
+    const currentBalance = form.totalAmount;
+    const newTotal = form.transactionType === TransactionType.deposit
+      ? currentBalance + amt
+      : currentBalance - amt;
+    setForm(prev => ({ ...prev, amount, totalAmount: newTotal }));
+  };
 
-    const amt = Number(form.amount);
-    const newBalance = form.type === 'deposit' ? currentBalance + amt : currentBalance - amt;
+  const handleTypeChange = (type: TransactionType) => {
+    const amt = parseFloat(form.amount) || 0;
+    const base = form.initialAmount;
+    const accountTxs = transactions.filter(t => t.accountNumber === form.accountNumber);
+    const currentBalance = accountTxs.reduce((bal, t) => {
+      return isDeposit(t) ? bal + t.amount : bal - t.amount;
+    }, base);
+    const newTotal = type === TransactionType.deposit ? currentBalance + amt : currentBalance - amt;
+    setForm(prev => ({ ...prev, transactionType: type, totalAmount: newTotal }));
+  };
 
-    addTransaction({
-      accountId: selectedAccount.id,
-      accountNumber: selectedAccount.accountNumber,
-      studentName: selectedAccount.studentName,
-      date: form.date,
-      type: form.type,
-      amount: amt,
-      reason: form.reason,
-      balanceAfter: newBalance,
+  const openAdd = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const openEdit = (t: Transaction) => {
+    setForm({
+      accountNumber: t.accountNumber,
+      studentName: t.studentName,
+      initialAmount: t.initialAmount,
+      date: t.date,
+      transactionType: isDeposit(t) ? TransactionType.deposit : TransactionType.withdrawal,
+      amount: String(t.amount),
+      reason: t.reason,
+      totalAmount: t.totalAmount,
     });
-
-    // Refresh
-    const bal = computeCurrentBalance(selectedAccount.id, selectedAccount.initialAmount);
-    setCurrentBalance(bal);
-    setTransactions(getTransactionsByAccount(selectedAccount.id));
-    setForm({ date: new Date().toISOString().split('T')[0], type: 'deposit', amount: '', reason: '' });
-    setErrors({});
-    setSubmitSuccess(true);
-    setTimeout(() => setSubmitSuccess(false), 3000);
+    setEditingId(t.id);
+    setFormError('');
+    setShowModal(true);
   };
 
-  const formatAmount = (n: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.accountNumber || !form.amount || !form.date) {
+      setFormError('कृपया सर्व आवश्यक फील्ड भरा');
+      return;
+    }
+    try {
+      const data = {
+        accountNumber: form.accountNumber,
+        studentName: form.studentName,
+        initialAmount: form.initialAmount,
+        date: form.date,
+        transactionType: form.transactionType,
+        amount: parseFloat(form.amount) || 0,
+        reason: form.reason,
+        totalAmount: form.totalAmount,
+      };
+      if (editingId) {
+        await updateTransaction.mutateAsync({ id: editingId, ...data });
+      } else {
+        await createTransaction.mutateAsync(data);
+      }
+      setShowModal(false);
+      setForm(emptyForm);
+    } catch (err: any) {
+      setFormError(err.message || 'Error saving transaction');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTransaction.mutateAsync(id);
+      setDeleteConfirm(null);
+    } catch (err: any) {
+      alert(err.message || 'Error deleting transaction');
+    }
+  };
+
+  const isSaving = createTransaction.isPending || updateTransaction.isPending;
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div>
-        <h2 className="text-lg font-bold text-gray-800">व्यवहार</h2>
-        <p className="text-xs text-gray-500">पैसे भरणे / काढणे</p>
-      </div>
-
-      {/* Form */}
-      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-        <div className="gradient-orange px-5 py-3">
-          <h3 className="text-white font-bold text-sm">नवीन व्यवहार</h3>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-gray-800 font-poppins">💸 Transactions</h2>
+          <p className="text-xs text-gray-500 font-poppins">{transactions.length} व्यवहार नोंदणीकृत</p>
         </div>
-        <form onSubmit={handleSubmit} className="p-4 space-y-3">
-          {/* Account Select */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">खाते क्रमांक *</label>
-            <select
-              value={selectedAccountId}
-              onChange={e => setSelectedAccountId(e.target.value)}
-              className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none ${
-                errors.account ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-orange-400 bg-gray-50'
-              }`}
-            >
-              <option value="">-- खाते निवडा --</option>
-              {accounts.map(a => (
-                <option key={a.id} value={a.id}>{a.accountNumber} - {a.studentName}</option>
-              ))}
-            </select>
-            {errors.account && <p className="text-red-500 text-xs mt-1">{errors.account}</p>}
-          </div>
-
-          {/* Auto-filled fields */}
-          {selectedAccount && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">विद्यार्थी नाव</label>
-                <input
-                  type="text"
-                  value={selectedAccount.studentName}
-                  readOnly
-                  className="w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 bg-gray-100 text-sm text-gray-600"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">शिल्लक रक्कम</label>
-                <input
-                  type="text"
-                  value={formatAmount(currentBalance)}
-                  readOnly
-                  className="w-full px-3 py-2.5 rounded-xl border-2 border-gray-200 bg-green-50 text-sm text-green-700 font-semibold"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Date */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">दिनांक *</label>
-            <input
-              type="date"
-              value={form.date}
-              onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-              className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none ${
-                errors.date ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-orange-400 bg-gray-50'
-              }`}
-            />
-            {errors.date && <p className="text-red-500 text-xs mt-1">{errors.date}</p>}
-          </div>
-
-          {/* Transaction Type */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-2">व्यवहार प्रकार *</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setForm(p => ({ ...p, type: 'deposit' }))}
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                  form.type === 'deposit'
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-200 text-gray-500 hover:border-green-300'
-                }`}
-              >
-                <TrendingUp size={16} />
-                पैसे भरणे
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm(p => ({ ...p, type: 'withdrawal' }))}
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                  form.type === 'withdrawal'
-                    ? 'border-red-500 bg-red-50 text-red-700'
-                    : 'border-gray-200 text-gray-500 hover:border-red-300'
-                }`}
-              >
-                <TrendingDown size={16} />
-                पैसे काढणे
-              </button>
-            </div>
-          </div>
-
-          {/* Amount */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">रक्कम *</label>
-            <input
-              type="number"
-              value={form.amount}
-              onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
-              placeholder="रक्कम टाका"
-              min="1"
-              className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none ${
-                errors.amount ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-orange-400 bg-gray-50'
-              }`}
-            />
-            {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
-          </div>
-
-          {/* Reason */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">कारण *</label>
-            <input
-              type="text"
-              value={form.reason}
-              onChange={e => setForm(p => ({ ...p, reason: e.target.value }))}
-              placeholder="व्यवहाराचे कारण"
-              className={`w-full px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none ${
-                errors.reason ? 'border-red-300 bg-red-50' : 'border-gray-200 focus:border-orange-400 bg-gray-50'
-              }`}
-            />
-            {errors.reason && <p className="text-red-500 text-xs mt-1">{errors.reason}</p>}
-          </div>
-
-          {/* Total Amount Preview */}
-          {form.amount && selectedAccount && (
-            <div className={`rounded-xl p-3 flex items-center justify-between ${
-              totalAmount >= 0 ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-            }`}>
-              <span className="text-xs font-semibold text-gray-600">एकूण रक्कम (नंतर):</span>
-              <span className={`font-bold text-base ${totalAmount >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                {formatAmount(totalAmount)}
-              </span>
-            </div>
-          )}
-
-          {submitSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-xl font-medium">
-              ✅ व्यवहार यशस्वीरित्या जतन झाला!
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="w-full gradient-orange text-white font-bold py-3.5 rounded-xl shadow-card hover:opacity-90 active:scale-95 transition-all"
-          >
-            व्यवहार जतन करा
-          </button>
-        </form>
+        <button
+          onClick={openAdd}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold font-poppins shadow-md"
+          style={{ background: 'linear-gradient(135deg, #10b981, #0f766e)' }}
+        >
+          <Plus size={16} /> नवीन व्यवहार
+        </button>
       </div>
 
-      {/* Transaction History for selected account */}
-      {selectedAccount && (
-        <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-bold text-gray-700 text-sm">
-              {selectedAccount.accountNumber} - व्यवहार इतिहास
-            </h3>
-            <span className="text-xs text-gray-400">{transactions.length} व्यवहार</span>
-          </div>
-          {transactions.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <ArrowLeftRight size={32} className="mx-auto mb-2 opacity-30" />
-              <p className="text-sm">कोणतेही व्यवहार नाहीत</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-orange-50 text-orange-800">
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">दिनांक</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">प्रकार</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">रक्कम</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">कारण</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-semibold whitespace-nowrap">शिल्लक</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((t, idx) => (
-                    <tr key={t.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/20'}>
-                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap text-xs">{t.date}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          t.type === 'deposit' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                        }`}>
-                          {t.type === 'deposit' ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                          {t.type === 'deposit' ? 'जमा' : 'काढणे'}
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <RefreshCw size={32} className="animate-spin text-green-500" />
+        </div>
+      ) : transactions.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+          <ArrowLeftRight size={48} className="mx-auto text-gray-300 mb-3" />
+          <p className="text-gray-500 font-poppins text-sm">कोणतेही व्यवहार सापडले नाहीत</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: 'linear-gradient(135deg, #10b981, #0f766e)' }}>
+                  {['Account नं.', 'विद्यार्थी', 'दिनांक', 'प्रकार', 'रक्कम', 'एकूण', 'कारण', 'क्रिया'].map(h => (
+                    <th key={h} className="px-3 py-3 text-left text-white text-xs font-bold font-poppins whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((t, idx) => {
+                  const dep = isDeposit(t);
+                  return (
+                    <tr key={t.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-3 py-2.5 font-mono text-xs text-gray-600 font-poppins">{t.accountNumber}</td>
+                      <td className="px-3 py-2.5 font-semibold text-gray-800 font-poppins whitespace-nowrap">{t.studentName}</td>
+                      <td className="px-3 py-2.5 text-gray-600 font-poppins whitespace-nowrap">{t.date}</td>
+                      <td className="px-3 py-2.5">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold font-poppins ${dep ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {dep ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                          {dep ? 'Deposit' : 'Withdrawal'}
                         </span>
                       </td>
-                      <td className={`px-3 py-2.5 font-semibold whitespace-nowrap ${
-                        t.type === 'deposit' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {t.type === 'deposit' ? '+' : '-'}{formatAmount(t.amount)}
+                      <td className={`px-3 py-2.5 font-bold font-poppins ${dep ? 'text-green-600' : 'text-red-600'}`}>
+                        {dep ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
                       </td>
-                      <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{t.reason}</td>
-                      <td className="px-3 py-2.5 font-semibold text-gray-800 whitespace-nowrap">{formatAmount(t.balanceAfter)}</td>
+                      <td className="px-3 py-2.5 font-bold text-gray-800 font-poppins">₹{t.totalAmount.toLocaleString('en-IN')}</td>
+                      <td className="px-3 py-2.5 text-gray-500 font-poppins text-xs max-w-[100px] truncate">{t.reason}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex gap-1">
+                          <button onClick={() => openEdit(t)} className="p-1.5 rounded-lg bg-violet-100 text-violet-600 hover:bg-violet-200">
+                            <Edit2 size={13} />
+                          </button>
+                          <button onClick={() => setDeleteConfirm(t.id)} className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b" style={{ background: 'linear-gradient(135deg, #10b981, #0f766e)' }}>
+              <h3 className="text-white font-bold font-poppins">
+                {editingId ? '✏️ व्यवहार संपादित करा' : '➕ नवीन व्यवहार'}
+              </h3>
+              <button onClick={() => setShowModal(false)} className="text-white/80 hover:text-white">
+                <X size={20} />
+              </button>
             </div>
-          )}
+            <form onSubmit={handleSubmit} className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">Account Number *</label>
+                <select
+                  value={form.accountNumber}
+                  onChange={e => handleAccountSelect(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-green-400 focus:outline-none text-sm font-poppins bg-white"
+                >
+                  <option value="">Account निवडा</option>
+                  {accounts.map(a => (
+                    <option key={a.id} value={a.accountNumber}>{a.accountNumber} - {a.studentName}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">विद्यार्थी नाव (Automatic)</label>
+                <input type="text" value={form.studentName} readOnly className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-poppins text-gray-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">प्रारंभिक रक्कम (Automatic)</label>
+                <input type="text" value={`₹${form.initialAmount.toLocaleString('en-IN')}`} readOnly className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-poppins text-gray-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">दिनांक *</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={e => setForm(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-green-400 focus:outline-none text-sm font-poppins"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">व्यवहार प्रकार *</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChange(TransactionType.deposit)}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold font-poppins border-2 transition-all flex items-center justify-center gap-2 ${
+                      form.transactionType === TransactionType.deposit
+                        ? 'bg-green-500 border-green-500 text-white'
+                        : 'border-gray-200 text-gray-600 hover:border-green-300'
+                    }`}
+                  >
+                    <TrendingUp size={14} /> पैसे भरणे
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChange(TransactionType.withdrawal)}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-bold font-poppins border-2 transition-all flex items-center justify-center gap-2 ${
+                      form.transactionType === TransactionType.withdrawal
+                        ? 'bg-red-500 border-red-500 text-white'
+                        : 'border-gray-200 text-gray-600 hover:border-red-300'
+                    }`}
+                  >
+                    <TrendingDown size={14} /> पैसे काढणे
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">रक्कम *</label>
+                <input
+                  type="number"
+                  value={form.amount}
+                  onChange={e => handleAmountChange(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-green-400 focus:outline-none text-sm font-poppins"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">कारण</label>
+                <input
+                  type="text"
+                  value={form.reason}
+                  onChange={e => setForm(prev => ({ ...prev, reason: e.target.value }))}
+                  placeholder="व्यवहाराचे कारण"
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-green-400 focus:outline-none text-sm font-poppins"
+                />
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2">
+                <p className="text-xs text-gray-600 font-poppins">एकूण रक्कम (Total Amount)</p>
+                <p className="text-xl font-bold text-green-700 font-poppins">₹{form.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+              </div>
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl px-3 py-2 font-poppins">
+                  ⚠️ {formError}
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold font-poppins">
+                  रद्द करा
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold font-poppins disabled:opacity-60 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #10b981, #0f766e)' }}
+                >
+                  {isSaving ? <><RefreshCw size={14} className="animate-spin" /> सेव्ह होत आहे...</> : '💾 सेव्ह करा'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 font-poppins mb-2">व्यवहार हटवायचा?</h3>
+            <p className="text-sm text-gray-500 font-poppins mb-4">हे कायमचे हटवले जाईल.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold font-poppins">रद्द करा</button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                disabled={deleteTransaction.isPending}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-bold font-poppins disabled:opacity-60"
+              >
+                {deleteTransaction.isPending ? 'हटवत आहे...' : '🗑️ हटवा'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

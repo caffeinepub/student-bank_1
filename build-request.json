@@ -1,37 +1,53 @@
 {
   "kind": "build_request",
-  "title": "Remove admin credentials hint from the Login page",
-  "projectName": "Student Bank",
-  "priority": "normal",
+  "title": "Fix admin role assignment error",
+  "priority": "high",
   "requirements": [
     {
-      "id": "REQ-16",
-      "text": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page. The login form should show only the input fields, labels, and the submit button with no credential hints visible to users.",
-      "target": "frontend",
+      "id": "REQ-1",
+      "text": "Fix the backend admin role assignment logic so that calling `adminLogin(username, password)` correctly grants the admin role to the caller's principal without throwing an error.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-latest"
+          "msg-4"
         ],
         "quotes": [
-          "login पेज वरील खालील बाजूस दिलेले demo admin बद्दलची माहिती काडून टाका"
+          "Admin role assign करता आला नाही. पुन्हा प्रयत्न करा. ही error येत आहे"
         ]
       },
       "acceptanceCriteria": [
-        "The Login page renders with no text, note, card, or section that displays the admin username or password.",
-        "No demo credentials, hint text, or instructional note about login credentials is visible anywhere on the Login page.",
-        "The login form still contains the username input, password input, and submit button functioning as before.",
-        "No other Login page functionality or styling is affected."
+        "Calling adminLogin with valid admin credentials successfully assigns the admin role to the authenticated principal.",
+        "No error is returned when valid admin credentials are provided.",
+        "The admin role persists across subsequent calls so the user is recognized as admin."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Fix the frontend admin login flow in App.tsx so that after Internet Identity authentication completes, the adminLogin call is made correctly, errors are caught and displayed to the user, and on success the user is routed to the admin dashboard.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Admin role assign करता आला नाही. पुन्हा प्रयत्न करा. ही error येत आहे"
+        ]
+      },
+      "acceptanceCriteria": [
+        "After completing Internet Identity login with admin credentials, adminLogin is called and a success response routes the user to the admin dashboard.",
+        "If adminLogin returns an error, a clear error message is displayed to the user on the login page.",
+        "The login flow does not silently fail — any backend error is surfaced in the UI."
       ]
     }
   ],
   "constraints": [
-    "Do not change login authentication logic or session handling.",
-    "Do not modify any immutable frontend paths."
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
+    "Keep all Motoko logic within the single backend/main.mo actor."
   ],
   "nonGoals": [
-    "Changing the actual admin credentials.",
-    "Redesigning the login page layout or theme.",
-    "Modifying backend authentication logic."
+    "Adding new user roles beyond the existing admin and user roles.",
+    "Changing the Internet Identity authentication mechanism.",
+    "Modifying the overall page routing structure beyond fixing the admin post-login redirect."
   ],
   "imageRequirements": {
     "required": [],

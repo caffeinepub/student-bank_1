@@ -1,14 +1,32 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-24T16:42:49.575Z",
-  "summary": "The diff correctly removes the admin credentials hint from the Login page as required by REQ-16. The Login.tsx file summary explicitly states 'The demo admin credentials hint section has been removed; only the login form remains.' The project_state.json also confirms 'Login page does not display admin credentials hint.' The login form (username input, password input, submit button) and authentication logic remain intact.",
-  "missing_requirements": [],
-  "hallucinated_features": [],
-  "confidence": 0.92,
+  "generatedAt": "2026-02-24T19:35:31.391Z",
+  "summary": "The diff modifies backend/main.mo and frontend/src/App.tsx (plus supporting files). The frontend changes in App.tsx clearly address REQ-2: errors are caught, user-friendly messages are shown, and success routes to the admin dashboard. However, the backend/main.mo diff is truncated and does not show the actual adminLogin function implementation — it only shows data types, state, and other CRUD functions. There is no visible evidence that the adminLogin function was fixed to correctly assign the admin role without throwing an error (REQ-1). The project_state.json still lists both AR-1 and AR-2 as 'pending', which is consistent with the backend fix being absent or unverifiable.",
+  "missing_requirements": [
+    {
+      "id": "REQ-1",
+      "requirement": "Fix the backend admin role assignment logic so that calling adminLogin(username, password) correctly grants the admin role to the caller's principal without throwing an error.",
+      "reason": "The backend/main.mo diff is truncated and does not show any adminLogin function being added or modified. The visible portion only shows data types and other CRUD operations. There is no evidence that the admin role assignment bug was fixed in the backend.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "Marathi-language error messages for admin login failures",
+      "reason": "The build request only requires that errors be caught and displayed to the user with a clear error message. The requirement does not specify Marathi language for error messages, yet the implementation uses Marathi strings for user-facing errors.",
+      "evidence": [
+        "frontend/src/App.tsx"
+      ]
+    }
+  ],
+  "confidence": 0.72,
   "changed_files": [
+    "backend/main.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/pages/Login.tsx",
+    "frontend/src/App.tsx",
     "project_state.json"
   ]
 }

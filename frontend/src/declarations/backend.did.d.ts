@@ -12,43 +12,96 @@ import type { Principal } from '@icp-sdk/core/principal';
 
 export interface Account {
   'id' : string,
-  'studentId' : string,
-  'balance' : number,
+  'studentName' : string,
+  'ifscCode' : string,
+  'bankName' : string,
+  'initialAmount' : number,
   'accountNumber' : string,
+  'transactions' : Array<Transaction>,
+  'studentClass' : string,
 }
 export interface BankDetail {
   'id' : string,
-  'branch' : string,
-  'accountId' : string,
-  'icon' : string,
+  'ifscCode' : string,
   'bankName' : string,
+  'district' : string,
+  'taluka' : string,
 }
 export interface Student {
   'id' : string,
-  'age' : bigint,
-  'gpa' : number,
+  'dateOfBirth' : string,
   'name' : string,
+  'district' : string,
+  'taluka' : string,
+  'accounts' : Array<Account>,
+  'rollNumber' : string,
+  'transactions' : Array<Transaction>,
+  'studentClass' : string,
+  'schoolName' : string,
 }
 export interface Transaction {
   'id' : string,
-  'accountId' : string,
+  'transactionType' : TransactionType,
+  'studentName' : string,
   'date' : string,
+  'totalAmount' : number,
+  'initialAmount' : number,
+  'accountNumber' : string,
   'amount' : number,
+  'reason' : string,
 }
-export interface UserProfile { 'name' : string, 'email' : string }
+export type TransactionType = { 'deposit' : null } |
+  { 'withdrawal' : null };
+export interface UserProfile { 'name' : string, 'accountNumber' : string }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface _CaffeineStorageCreateCertificateResult {
+  'method' : string,
+  'blob_hash' : string,
+}
+export interface _CaffeineStorageRefillInformation {
+  'proposed_top_up_amount' : [] | [bigint],
+}
+export interface _CaffeineStorageRefillResult {
+  'success' : [] | [boolean],
+  'topped_up_amount' : [] | [bigint],
+}
 export interface _SERVICE {
+  '_caffeineStorageBlobIsLive' : ActorMethod<[Uint8Array], boolean>,
+  '_caffeineStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
+  '_caffeineStorageConfirmBlobDeletion' : ActorMethod<
+    [Array<Uint8Array>],
+    undefined
+  >,
+  '_caffeineStorageCreateCertificate' : ActorMethod<
+    [string],
+    _CaffeineStorageCreateCertificateResult
+  >,
+  '_caffeineStorageRefillCashier' : ActorMethod<
+    [[] | [_CaffeineStorageRefillInformation]],
+    _CaffeineStorageRefillResult
+  >,
+  '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'adminLogin' : ActorMethod<[string, string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'createAccount' : ActorMethod<[string, number, string], Account>,
+  'createAccount' : ActorMethod<
+    [string, string, string, string, number, string],
+    Account
+  >,
   'createBankDetail' : ActorMethod<
     [string, string, string, string],
     BankDetail
   >,
-  'createStudent' : ActorMethod<[string, bigint, number], Student>,
-  'createTransaction' : ActorMethod<[number, string, string], Transaction>,
+  'createStudent' : ActorMethod<
+    [string, string, string, string, string, string, string],
+    Student
+  >,
+  'createTransaction' : ActorMethod<
+    [string, string, number, string, TransactionType, number, string, number],
+    Transaction
+  >,
   'deleteAccount' : ActorMethod<[string], undefined>,
   'deleteBankDetail' : ActorMethod<[string], undefined>,
   'deleteStudent' : ActorMethod<[string], undefined>,
@@ -60,23 +113,50 @@ export interface _SERVICE {
   'getAllStudents' : ActorMethod<[], Array<Student>>,
   'getAllTransactions' : ActorMethod<[], Array<Transaction>>,
   'getBankDetail' : ActorMethod<[string], BankDetail>,
-  'getBankDetailsByAccount' : ActorMethod<[string], Array<BankDetail>>,
+  'getBankDetailsByDistrict' : ActorMethod<[string], Array<BankDetail>>,
+  'getBankDetailsByTaluka' : ActorMethod<[string], Array<BankDetail>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getPassbook' : ActorMethod<[string], [Account, Array<Transaction>]>,
   'getStudent' : ActorMethod<[string], Student>,
   'getTransaction' : ActorMethod<[string], Transaction>,
   'getTransactionsByAccount' : ActorMethod<[string], Array<Transaction>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
-  'updateAccount' : ActorMethod<[string, string, number, string], Account>,
+  'searchTransactions' : ActorMethod<
+    [string, string, string],
+    {
+      'studentName' : string,
+      'ifscCode' : string,
+      'bankName' : string,
+      'transactions' : Array<Transaction>,
+    }
+  >,
+  'updateAccount' : ActorMethod<
+    [string, string, string, string, string, number, string],
+    Account
+  >,
   'updateBankDetail' : ActorMethod<
     [string, string, string, string, string],
     BankDetail
   >,
-  'updateStudent' : ActorMethod<[string, string, bigint, number], Student>,
+  'updateStudent' : ActorMethod<
+    [string, string, string, string, string, string, string, string],
+    Student
+  >,
   'updateTransaction' : ActorMethod<
-    [string, number, string, string],
+    [
+      string,
+      string,
+      string,
+      number,
+      string,
+      TransactionType,
+      number,
+      string,
+      number,
+    ],
     Transaction
   >,
 }

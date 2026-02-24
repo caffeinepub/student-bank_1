@@ -1,34 +1,42 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-24T16:42:49.578Z",
+  "generatedAt": "2026-02-24T19:35:31.393Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
+    "total": 2,
     "implemented": 1,
     "items": [
       {
-        "id": "REQ-16",
-        "summary": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page. The login form should show only the input fields, labels, and the submit button with no credential hints visible to users.",
+        "id": "REQ-1",
+        "summary": "Fix the backend admin role assignment logic so that calling `adminLogin(username, password)` correctly grants the admin role to the caller's principal without throwing an error.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Fix the frontend admin login flow in App.tsx so that after Internet Identity authentication completes, the adminLogin call is made correctly, errors are caught and displayed to the user, and on success the user is routed to the admin dashboard.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/Login.tsx"
+          "frontend/src/App.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/Login.tsx"
+          "frontend/src/App.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/pages/Login.tsx",
+    "frontend/src/App.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

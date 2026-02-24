@@ -1,254 +1,190 @@
-import React, { useState, useEffect } from 'react';
-import {
-  getAccounts, getStudents, getTransactions, getBankDetails,
-  getAuthSession, computeCurrentBalance,
-  type AccountRecord, type StudentRecord, type TransactionRecord, type BankDetailRecord
-} from '../utils/localStorage';
-import { Printer, BookOpen, TrendingUp, TrendingDown } from 'lucide-react';
+import React, { useState } from 'react';
+import { Printer, RefreshCw, BookOpen, TrendingUp, TrendingDown } from 'lucide-react';
+import { useGetPassbook, useGetAllAccounts } from '../hooks/useQueries';
 
-export default function PassbookPrint() {
-  const session = getAuthSession();
-  const isUser = session?.role === 'user';
+interface PassbookPrintProps {
+  userAccountNumber: string;
+  isAdmin: boolean;
+}
 
-  const [accountNumber, setAccountNumber] = useState(isUser ? (session?.accountNumber || '') : '');
-  const [account, setAccount] = useState<AccountRecord | null>(null);
-  const [student, setStudent] = useState<StudentRecord | null>(null);
-  const [bankDetail, setBankDetail] = useState<BankDetailRecord | null>(null);
-  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
-  const [currentBalance, setCurrentBalance] = useState(0);
-  const [error, setError] = useState('');
+export default function PassbookPrint({ userAccountNumber, isAdmin }: PassbookPrintProps) {
+  const [selectedAccount, setSelectedAccount] = useState(isAdmin ? '' : userAccountNumber);
+  const [queryAccount, setQueryAccount] = useState(isAdmin ? '' : userAccountNumber);
 
-  const loadData = (accNum: string) => {
-    setError('');
-    const accounts = getAccounts();
-    const acc = accounts.find(a => a.accountNumber === accNum);
-    if (!acc) {
-      setAccount(null);
-      setStudent(null);
-      setBankDetail(null);
-      setTransactions([]);
-      if (accNum) setError('हे खाते क्रमांक सापडले नाही');
-      return;
-    }
+  const { data: accounts = [] } = useGetAllAccounts();
+  const { data: passbookData, isLoading, error, refetch } = useGetPassbook(queryAccount);
 
-    const students = getStudents();
-    const stu = students.find(s => s.id === acc.studentId) || null;
-
-    const bankDetails = getBankDetails();
-    const bank = bankDetails.find(b => b.bankName === acc.bankName) || null;
-
-    const txns = getTransactions()
-      .filter(t => t.accountId === acc.id)
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    const bal = computeCurrentBalance(acc.id, acc.initialAmount);
-
-    setAccount(acc);
-    setStudent(stu);
-    setBankDetail(bank);
-    setTransactions(txns);
-    setCurrentBalance(bal);
-  };
-
-  useEffect(() => {
-    if (isUser && session?.accountNumber) {
-      loadData(session.accountNumber);
-    }
-  }, []);
+  const isDeposit = (t: any) => JSON.stringify(t.transactionType).includes('deposit');
 
   const handleSearch = () => {
-    if (!accountNumber.trim()) {
-      setError('खाते क्रमांक टाका');
-      return;
-    }
-    loadData(accountNumber.trim());
+    setQueryAccount(selectedAccount);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
-  const formatAmount = (n: number) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
+  const account = passbookData?.[0];
+  const transactions = passbookData?.[1] || [];
+  const sortedTx = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-bold text-gray-800">पासबुक प्रिंट</h2>
-        <p className="text-xs text-gray-500">खाते क्रमांकानुसार पासबुक पहा</p>
+        <h2 className="text-lg font-bold text-gray-800 font-poppins">📖 Passbook Print</h2>
+        <p className="text-xs text-gray-500 font-poppins">विद्यार्थी passbook पाहा आणि print करा</p>
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-2xl shadow-card p-4 no-print">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={accountNumber}
-            onChange={e => setAccountNumber(e.target.value)}
-            placeholder="खाते क्रमांक टाका"
-            readOnly={isUser}
-            className={`flex-1 px-3 py-2.5 rounded-xl border-2 text-sm focus:outline-none ${
-              isUser
-                ? 'border-gray-200 bg-gray-100 text-gray-500'
-                : 'border-gray-200 focus:border-purple-400 bg-gray-50'
-            }`}
-          />
-          {!isUser && (
-            <button
-              onClick={handleSearch}
-              className="gradient-primary text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-glow hover:opacity-90"
+      {/* Account Selection (Admin only) */}
+      {isAdmin && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1 font-poppins">Account Number निवडा</label>
+            <select
+              value={selectedAccount}
+              onChange={e => setSelectedAccount(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 focus:border-blue-400 focus:outline-none text-sm font-poppins bg-white"
             >
-              शोधा
-            </button>
-          )}
+              <option value="">Account निवडा</option>
+              {accounts.map(a => (
+                <option key={a.id} value={a.accountNumber}>{a.accountNumber} - {a.studentName}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={handleSearch}
+            disabled={!selectedAccount}
+            className="w-full py-3 rounded-xl text-white font-bold font-poppins text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}
+          >
+            <BookOpen size={16} /> Passbook पाहा
+          </button>
         </div>
-        {error && <p className="text-red-500 text-xs mt-2">{error}</p>}
-      </div>
+      )}
 
-      {/* Passbook */}
-      {account && (
-        <div id="passbook-print-area">
-          {/* Print Button */}
-          <div className="flex justify-end mb-3 no-print">
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 gradient-primary text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-glow hover:opacity-90"
-            >
-              <Printer size={16} />
-              प्रिंट करा
-            </button>
+      {/* Loading */}
+      {isLoading && queryAccount && (
+        <div className="flex justify-center py-12">
+          <RefreshCw size={32} className="animate-spin text-blue-500" />
+        </div>
+      )}
+
+      {/* Error */}
+      {error && queryAccount && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center">
+          <p className="text-red-600 font-poppins text-sm">⚠️ Account सापडले नाही किंवा access नाही</p>
+        </div>
+      )}
+
+      {/* Passbook Content */}
+      {account && !isLoading && (
+        <div id="passbook-print" className="space-y-4">
+          {/* Print Header */}
+          <div
+            className="rounded-2xl p-5 text-white shadow-lg print:shadow-none"
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center overflow-hidden">
+                <img src="/assets/generated/bank-logo.dim_256x256.png" alt="Bank" className="w-10 h-10 object-contain" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg font-poppins">🏦 Student Bank</h3>
+                <p className="text-white/80 text-xs font-poppins">विद्यार्थी बँक पासबुक</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p className="text-white/70 text-xs font-poppins">बँक नाव</p>
+                <p className="font-bold font-poppins">{account.bankName}</p>
+              </div>
+              <div>
+                <p className="text-white/70 text-xs font-poppins">IFSC Code</p>
+                <p className="font-bold font-mono text-xs">{account.ifscCode}</p>
+              </div>
+            </div>
           </div>
 
-          {/* Passbook Header */}
-          <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-            <div className="gradient-primary px-5 py-4 text-center">
-              <div className="flex justify-center mb-2">
-                <img
-                  src="/assets/generated/bank-logo.dim_256x256.png"
-                  alt="Bank Logo"
-                  className="w-12 h-12 rounded-xl object-cover"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
+          {/* Student & Account Info */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <h4 className="font-bold text-gray-700 font-poppins text-sm mb-3">👨‍🎓 विद्यार्थी माहिती</h4>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="bg-teal-50 rounded-xl p-2">
+                <p className="text-xs text-gray-500 font-poppins">विद्यार्थी नाव</p>
+                <p className="font-bold text-gray-800 font-poppins">{account.studentName}</p>
               </div>
-              <h2 className="text-white font-bold text-lg">Student Bank</h2>
-              <p className="text-purple-200 text-xs">विद्यार्थी बँक पासबुक</p>
-            </div>
-
-            {/* Student & Account Info */}
-            <div className="p-4 grid grid-cols-2 gap-4 border-b border-gray-100">
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-purple-600 uppercase tracking-wider">विद्यार्थी माहिती</h4>
-                <div>
-                  <p className="text-xs text-gray-400">नाव</p>
-                  <p className="text-sm font-bold text-gray-800">{student?.name || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">इयत्ता</p>
-                  <p className="text-sm font-semibold text-gray-700">{student?.className || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">शाळा</p>
-                  <p className="text-sm font-semibold text-gray-700">{student?.schoolName || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">तालुका / जिल्हा</p>
-                  <p className="text-sm font-semibold text-gray-700">{student?.taluka}, {student?.district}</p>
-                </div>
+              <div className="bg-violet-50 rounded-xl p-2">
+                <p className="text-xs text-gray-500 font-poppins">इयत्ता</p>
+                <p className="font-bold text-gray-800 font-poppins">{account.studentClass}</p>
               </div>
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-green-600 uppercase tracking-wider">खाते माहिती</h4>
-                <div>
-                  <p className="text-xs text-gray-400">खाते क्रमांक</p>
-                  <p className="text-sm font-bold text-gray-800 font-mono">{account.accountNumber}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">बँक</p>
-                  <p className="text-sm font-semibold text-gray-700">{account.bankName}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">IFSC</p>
-                  <p className="text-sm font-semibold text-gray-700 font-mono">{account.ifscCode}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">शिल्लक रक्कम</p>
-                  <p className="text-base font-extrabold text-green-600">{formatAmount(currentBalance)}</p>
-                </div>
+              <div className="bg-orange-50 rounded-xl p-2">
+                <p className="text-xs text-gray-500 font-poppins">Account Number</p>
+                <p className="font-bold text-gray-800 font-poppins font-mono text-xs">{account.accountNumber}</p>
+              </div>
+              <div className="bg-pink-50 rounded-xl p-2">
+                <p className="text-xs text-gray-500 font-poppins">प्रारंभिक रक्कम</p>
+                <p className="font-bold text-gray-800 font-poppins">₹{account.initialAmount.toLocaleString('en-IN')}</p>
               </div>
             </div>
+          </div>
 
-            {/* Transactions */}
-            <div className="p-4">
-              <h4 className="text-xs font-bold text-gray-600 uppercase tracking-wider mb-3">
-                व्यवहार इतिहास ({transactions.length})
-              </h4>
-              {transactions.length === 0 ? (
-                <div className="text-center py-6 text-gray-400">
-                  <BookOpen size={32} className="mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">कोणतेही व्यवहार नाहीत</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-purple-50 text-purple-800">
-                        <th className="px-2 py-2 text-left font-semibold whitespace-nowrap">दिनांक</th>
-                        <th className="px-2 py-2 text-left font-semibold whitespace-nowrap">प्रकार</th>
-                        <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">जमा</th>
-                        <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">काढणे</th>
-                        <th className="px-2 py-2 text-left font-semibold whitespace-nowrap">कारण</th>
-                        <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">शिल्लक</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* Opening balance row */}
-                      <tr className="bg-blue-50">
-                        <td className="px-2 py-2 text-gray-500 whitespace-nowrap">-</td>
-                        <td className="px-2 py-2 text-blue-700 font-semibold whitespace-nowrap">प्रारंभिक</td>
-                        <td className="px-2 py-2 text-right text-green-600 font-semibold whitespace-nowrap">{formatAmount(account.initialAmount)}</td>
-                        <td className="px-2 py-2 text-right text-gray-400 whitespace-nowrap">-</td>
-                        <td className="px-2 py-2 text-gray-500 whitespace-nowrap">Opening Balance</td>
-                        <td className="px-2 py-2 text-right font-bold text-gray-800 whitespace-nowrap">{formatAmount(account.initialAmount)}</td>
-                      </tr>
-                      {transactions.map((t, idx) => (
+          {/* Transactions */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h4 className="font-bold text-gray-700 font-poppins text-sm">💳 व्यवहार इतिहास</h4>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold font-poppins text-white"
+                style={{ background: 'linear-gradient(135deg, #3b82f6, #6366f1)' }}
+              >
+                <Printer size={12} /> Print
+              </button>
+            </div>
+            {sortedTx.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 font-poppins text-sm">कोणतेही व्यवहार नाहीत</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['दिनांक', 'प्रकार', 'रक्कम', 'शिल्लक', 'कारण'].map(h => (
+                        <th key={h} className="px-3 py-2.5 text-left text-gray-600 text-xs font-bold font-poppins whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedTx.map((t, idx) => {
+                      const dep = isDeposit(t);
+                      return (
                         <tr key={t.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-2 py-2 text-gray-600 whitespace-nowrap">{t.date}</td>
-                          <td className="px-2 py-2 whitespace-nowrap">
-                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                              t.type === 'deposit' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                            }`}>
-                              {t.type === 'deposit' ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
-                              {t.type === 'deposit' ? 'जमा' : 'काढणे'}
+                          <td className="px-3 py-2.5 text-gray-600 font-poppins whitespace-nowrap text-xs">{t.date}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold font-poppins ${dep ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {dep ? <TrendingUp size={9} /> : <TrendingDown size={9} />}
+                              {dep ? 'Deposit' : 'Withdrawal'}
                             </span>
                           </td>
-                          <td className="px-2 py-2 text-right text-green-600 font-semibold whitespace-nowrap">
-                            {t.type === 'deposit' ? formatAmount(t.amount) : '-'}
+                          <td className={`px-3 py-2.5 font-bold font-poppins text-xs ${dep ? 'text-green-600' : 'text-red-600'}`}>
+                            {dep ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
                           </td>
-                          <td className="px-2 py-2 text-right text-red-600 font-semibold whitespace-nowrap">
-                            {t.type === 'withdrawal' ? formatAmount(t.amount) : '-'}
-                          </td>
-                          <td className="px-2 py-2 text-gray-600 whitespace-nowrap">{t.reason}</td>
-                          <td className="px-2 py-2 text-right font-bold text-gray-800 whitespace-nowrap">{formatAmount(t.balanceAfter)}</td>
+                          <td className="px-3 py-2.5 font-bold text-gray-800 font-poppins text-xs">₹{t.totalAmount.toLocaleString('en-IN')}</td>
+                          <td className="px-3 py-2.5 text-gray-500 font-poppins text-xs">{t.reason}</td>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-purple-50 border-t-2 border-purple-200">
-                        <td colSpan={5} className="px-2 py-2 font-bold text-purple-800 text-right">एकूण शिल्लक:</td>
-                        <td className="px-2 py-2 text-right font-extrabold text-purple-800">{formatAmount(currentBalance)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              )}
-            </div>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {!account && !error && (
-        <div className="text-center py-12 text-gray-400">
-          <BookOpen size={48} className="mx-auto mb-3 opacity-20" />
-          <p className="font-medium">पासबुक पाहण्यासाठी खाते क्रमांक टाका</p>
+      {/* Empty state */}
+      {!queryAccount && (
+        <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+          <BookOpen size={56} className="mx-auto text-gray-300 mb-3" />
+          <p className="text-gray-500 font-poppins text-sm">Account निवडा आणि passbook पाहा</p>
         </div>
       )}
     </div>

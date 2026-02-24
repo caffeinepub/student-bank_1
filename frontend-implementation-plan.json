@@ -1,22 +1,21 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Remove admin credentials hint from the Login page",
+  "title": "Fix admin role assignment error",
   "requirements": [
     {
-      "id": "REQ-16",
-      "summary": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page",
+      "id": "REQ-2",
+      "summary": "Fix the frontend admin login flow so that after Internet Identity authentication completes, the adminLogin call is made correctly, errors are caught and displayed to the user, and on success the user is routed to the admin dashboard",
       "acceptanceCriteria": [
-        "The Login page renders with no text, note, card, or section that displays the admin username or password.",
-        "No demo credentials, hint text, or instructional note about login credentials is visible anywhere on the Login page.",
-        "The login form still contains the username input, password input, and submit button functioning as before.",
-        "No other Login page functionality or styling is affected."
+        "After completing Internet Identity login with admin credentials, adminLogin is called and a success response routes the user to the admin dashboard.",
+        "If adminLogin returns an error, a clear error message is displayed to the user on the login page.",
+        "The login flow does not silently fail — any backend error is surfaced in the UI."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/Login.tsx",
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Remove the admin credentials hint section or text that displays demo username and password information at the bottom of the login form. Keep only the username input, password input, role selection, and submit button. Ensure no credential hints, helper text, or instructional notes about admin login remain visible on the page."
+          "description": "Fix the admin login flow after Internet Identity authentication completes. Wrap the adminLogin call in proper error handling using try-catch, display error messages to the user when adminLogin fails, and ensure successful admin login redirects to the dashboard. Verify that the pendingAdminLogin state and credentials are correctly passed to the post-authentication handler."
         }
       ]
     }
