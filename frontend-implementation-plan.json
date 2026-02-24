@@ -1,0 +1,24 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Remove admin credentials hint from the Login page",
+  "requirements": [
+    {
+      "id": "REQ-16",
+      "summary": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page",
+      "acceptanceCriteria": [
+        "The Login page renders with no text, note, card, or section that displays the admin username or password.",
+        "No demo credentials, hint text, or instructional note about login credentials is visible anywhere on the Login page.",
+        "The login form still contains the username input, password input, and submit button functioning as before.",
+        "No other Login page functionality or styling is affected."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Login.tsx",
+          "operation": "modify",
+          "description": "Remove the admin credentials hint section or text that displays demo username and password information at the bottom of the login form. Keep only the username input, password input, role selection, and submit button. Ensure no credential hints, helper text, or instructional notes about admin login remain visible on the page."
+        }
+      ]
+    }
+  ]
+}

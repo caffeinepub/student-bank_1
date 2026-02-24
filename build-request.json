@@ -1,0 +1,40 @@
+{
+  "kind": "build_request",
+  "title": "Remove admin credentials hint from the Login page",
+  "projectName": "Student Bank",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-16",
+      "text": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page. The login form should show only the input fields, labels, and the submit button with no credential hints visible to users.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-latest"
+        ],
+        "quotes": [
+          "login पेज वरील खालील बाजूस दिलेले demo admin बद्दलची माहिती काडून टाका"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The Login page renders with no text, note, card, or section that displays the admin username or password.",
+        "No demo credentials, hint text, or instructional note about login credentials is visible anywhere on the Login page.",
+        "The login form still contains the username input, password input, and submit button functioning as before.",
+        "No other Login page functionality or styling is affected."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not change login authentication logic or session handling.",
+    "Do not modify any immutable frontend paths."
+  ],
+  "nonGoals": [
+    "Changing the actual admin credentials.",
+    "Redesigning the login page layout or theme.",
+    "Modifying backend authentication logic."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

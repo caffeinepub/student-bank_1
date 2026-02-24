@@ -1,0 +1,37 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-24T16:42:49.578Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 1,
+    "implemented": 1,
+    "items": [
+      {
+        "id": "REQ-16",
+        "summary": "Remove any admin credentials hint, helper text, or informational note about the admin username/password that is currently displayed at the bottom of the Login page. The login form should show only the input fields, labels, and the submit button with no credential hints visible to users.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Login.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Login.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "build-request.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/pages/Login.tsx",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

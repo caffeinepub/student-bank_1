@@ -1,0 +1,6 @@
+{
+  "frontend/src/App.tsx": "Main application component that manages authentication state and page routing. Reads session from localStorage on mount, renders Login page when unauthenticated, and wraps all dashboard pages in DashboardLayout with role-based navigation.",
+  "frontend/src/pages/Student.tsx": "Student management page (admin only) with search, data table, and modal form for adding/editing/deleting student records. Fixed missing `Users` icon import from lucide-react.",
+  "frontend/src/pages/BankDetails.tsx": "Bank details page accessible to both admin and user roles, displaying a searchable table of bank records. Admin users can add, edit, and delete bank entries via a modal form; regular users see a read-only view. Includes the app footer with caffeine.ai attribution.",
+  "frontend/src/pages/Login.tsx": "Login page with username/password form, background image, and bank branding. The demo admin credentials hint section has been removed; only the login form remains."
+}
